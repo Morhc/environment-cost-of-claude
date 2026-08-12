@@ -319,7 +319,7 @@ if a.plot and hourly:
     lo_name = min(GRIDS, key=GRIDS.get).replace("_", " ")
     hi_name = max(GRIDS, key=GRIDS.get).replace("_", " ")
 
-    AQUA = "#1baf7a"
+    BLUE_D, BLUE_L = "#184f95", "#86b6ef"   # blue ramp steps 600 / 250
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(9.2, 8.8), sharex=True)
     fig.subplots_adjust(left=0.085, right=0.955, top=0.895, bottom=0.07, hspace=0.30)
 
@@ -349,21 +349,24 @@ if a.plot and hourly:
                      color=INK2 if val == g else MUTED, va="center")
     ax2.yaxis.set_major_locator(MaxNLocator(5))
 
-    # (c) cumulative water. The band is not an error bar -- it is the BOUNDARY choice, on-site
-    # cooling water versus water evaporated at the power plants too. That gap is the whole of the
-    # public water controversy, so it is drawn rather than argued.
-    ax3.fill_between(days, [c*WUE_ON for c in cum], [c*(WUE_ON+WUE_OFF) for c in cum],
-                     color=AQUA, alpha=0.15, lw=0)
-    ax3.plot(days, [c*(WUE_ON+WUE_OFF) for c in cum], color=AQUA, lw=2, solid_capstyle="round")
-    ax3.plot(days, [c*WUE_ON for c in cum], color=AQUA, lw=1.2, ls=(0, (3, 2)))
+    # (c) cumulative water, stacked. On-site cooling and power-plant evaporation are two parts of
+    # one quantity, not two categories, so they take two steps of a single sequential blue ramp
+    # (steps 600 and 250; validated with --ordinal: monotone L, visible gap, light end 2.06:1).
+    # The split IS the finding -- it is the boundary that makes published water figures disagree.
+    on = [c*WUE_ON for c in cum]
+    tot = [c*(WUE_ON+WUE_OFF) for c in cum]
+    ax3.fill_between(days, 0, on, color=BLUE_D, lw=0, label="on-site cooling")
+    ax3.fill_between(days, on, tot, color=BLUE_L, lw=0, label="power-plant evaporation")
+    ax3.plot(days, tot, color=BLUE_D, lw=1.4, solid_capstyle="round")
     ax3.set_ylabel("cumulative litres", fontsize=8.5)
-    ax3.set_title("c. Cumulative water — solid line includes power-plant evaporation; "
-                  "dashed is on-site cooling only", loc="left", fontweight="bold", fontsize=9.5)
-    # Direct labels are mandatory relief here: aqua sits at 2.74:1 against the surface.
-    ax3.annotate(f"{cum[-1]*(WUE_ON+WUE_OFF):,.0f} L  total", (days[-1], cum[-1]*(WUE_ON+WUE_OFF)),
-                 textcoords="offset points", xytext=(6, 2), fontsize=7.5, color=INK2, va="center")
-    ax3.annotate(f"{cum[-1]*WUE_ON:,.0f} L  on-site", (days[-1], cum[-1]*WUE_ON),
-                 textcoords="offset points", xytext=(6, -2), fontsize=7.5, color=MUTED, va="center")
+    ax3.set_title("c. Cumulative water — the split is the measurement boundary, not an error bar",
+                  loc="left", fontweight="bold", fontsize=9.5)
+    ax3.legend(loc="upper left", frameon=False, fontsize=8, handlelength=1.4,
+               labelcolor=INK2, borderpad=0.2)
+    ax3.annotate(f"{tot[-1]:,.0f} L  total", (days[-1], tot[-1]), textcoords="offset points",
+                 xytext=(6, 2), fontsize=7.5, color=INK2, va="center")
+    ax3.annotate(f"{on[-1]:,.0f} L  on-site", (days[-1], on[-1]), textcoords="offset points",
+                 xytext=(6, -2), fontsize=7.5, color=MUTED, va="center")
     ax3.yaxis.set_major_locator(MaxNLocator(5))
 
     for spec in a.event:

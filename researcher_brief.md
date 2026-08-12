@@ -191,7 +191,7 @@ Table: Measured token and energy mix — 104 sessions across two machines (a lap
 | Output | 56.8 M | 0.4% | 110.7 kWh | 13.8% |
 | **Total** | **14,116.5 M** | | **800.3 kWh** | |
 
-![One user's measured Claude Code usage, all time. Panel (a) daily energy, band = the ×/÷2 low end of the 2–4× method uncertainty on the per-token rates. Panel (b) cumulative CO~2~, line at the US-average grid, band spanning every accounting convention in Section 4 (eGRID NYUP to AVERT Midwest). Panel (c) cumulative water, where the band is not an error bar but the *boundary choice* — on-site cooling versus power-plant evaporation included. Token counts are measured; everything else is derived. Unlike every other figure in this project, a reader cannot reproduce this one: it needs the author's own transcripts.](figures/fig_s2_usage_alltime.png)
+![One user's measured Claude Code usage, all time. Panel (a) daily energy, band = the ×/÷2 low end of the 2–4× method uncertainty on the per-token rates. Panel (b) cumulative CO~2~, line at the US-average grid, band spanning every accounting convention in Section 4 (eGRID NYUP to AVERT Midwest). Panel (c) cumulative water, stacked into its two components in one blue ramp: on-site cooling (dark) and power-plant evaporation (light). That split is a measurement boundary, not an error bar, and it is what makes published water figures disagree by orders of magnitude. Token counts are measured; everything else is derived. Unlike every other figure in this project, a reader cannot reproduce this one: it needs the author's own transcripts.](figures/fig_s2_usage_alltime.png)
 
 Five findings, in descending order of consequence for this brief.
 
