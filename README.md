@@ -119,6 +119,21 @@ inflates your total and reads what isn't yours.
 Two things stay uncounted regardless: cloud sessions (server-side, never written to local disk)
 and Claude Desktop / claude.ai. There is no way to recover those from a filesystem.
 
+### Cost over time
+
+Transcripts timestamp every record in **UTC**, whatever timezone the host runs in, so a laptop on
+Pacific and a cluster on Eastern are already on one clock. The timezone is purely a display choice,
+applied when the bins are drawn:
+
+```bash
+python3 measure_usage.py --by day  --tz America/Vancouver   # calendar days, gaps preserved
+python3 measure_usage.py --by hour --tz America/Vancouver   # hour-of-day profile
+python3 measure_usage.py --by dow                           # day-of-week profile
+python3 measure_usage.py --by week   # or --by month
+```
+
+`--by` works with `--merge` too, so multi-machine history bins on a single wall clock.
+
 ## A note on the numbers
 
 Anthropic publishes no environmental data, so nothing here about Claude is measured — it is all

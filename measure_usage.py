@@ -44,6 +44,12 @@ ap.add_argument("--raw", action="store_true", help="emit token counts as JSON; a
                 "and reads no data files, so it can be piped to a remote host")
 ap.add_argument("--merge", nargs="+", metavar="FILE", help="combine --raw JSON files and report")
 ap.add_argument("--list-grids", action="store_true", help="print all conventions and exit")
+ap.add_argument("--by", choices=["day", "week", "month", "hour", "dow"],
+                help="also print a time series: calendar bins, or hour-of-day / day-of-week "
+                     "profiles")
+ap.add_argument("--tz", help="timezone for --by, e.g. America/Vancouver or America/Toronto. "
+                "Transcripts are stored in UTC, so this only changes how bins are drawn. "
+                "Default: this machine's local zone.")
 a = ap.parse_args()
 
 
@@ -58,6 +64,10 @@ def scan(roots, project_filter=None):
     Those carry real token spend and roll into their parent session.
     """
     agg = {}
+    # Token counts bucketed by UTC hour. Transcripts timestamp every record in UTC ("...Z")
+    # regardless of the host's own timezone, so a laptop on PST and a cluster on EST are already
+    # on one clock -- the timezone is only ever a display choice, applied at report time.
+    hourly = {}
     for root in roots:
         root = os.path.expanduser(root)
         if not os.path.isdir(root):
@@ -86,10 +96,13 @@ def scan(roots, project_filter=None):
                 if not isinstance(u, dict):
                     continue
                 # top-level counters only; the `iterations` array restates the same numbers
-                f += (u.get("input_tokens") or 0) + (u.get("cache_creation_input_tokens") or 0)
-                c += u.get("cache_read_input_tokens") or 0
-                o += u.get("output_tokens") or 0
-                m += 1
+                mf = (u.get("input_tokens") or 0) + (u.get("cache_creation_input_tokens") or 0)
+                mc = u.get("cache_read_input_tokens") or 0
+                mo = u.get("output_tokens") or 0
+                f += mf; c += mc; o += mo; m += 1
+                if ts:
+                    h = hourly.setdefault(ts[:13], [0, 0, 0])   # "YYYY-MM-DDTHH" in UTC
+                    h[0] += mf; h[1] += mc; h[2] += mo
             if not m:
                 continue
             s = agg.setdefault((root, project, session),
@@ -99,7 +112,7 @@ def scan(roots, project_filter=None):
             s["subagents"] += len(parts) > 2
             if first: s["first"] = min(s["first"] or first, first)
             if last: s["last"] = max(s["last"] or last, last)
-    return list(agg.values())
+    return list(agg.values()), hourly
 
 
 def rates_and_grids():
@@ -126,13 +139,16 @@ if a.list_grids:
 
 # ---- gather -------------------------------------------------------------------------------
 if a.merge:
-    sources, sessions = [], []
+    sources, sessions, hourly = [], [], {}
     for fn in a.merge:
         d = json.load(open(fn))
         sources.append(d)
         sessions += d["sessions_detail"]
+        for k, v in (d.get("hourly") or {}).items():
+            h = hourly.setdefault(k, [0, 0, 0])
+            for i in range(3): h[i] += v[i]
 else:
-    sessions = scan(a.root or ["~/.claude/projects"], a.project)
+    sessions, hourly = scan(a.root or ["~/.claude/projects"], a.project)
     if a.days:
         cut = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - a.days * 86400))
         sessions = [s for s in sessions if (s["last"] or "") >= cut]
@@ -153,6 +169,7 @@ if a.raw:
         "sessions": len(sessions), "messages": tot("msgs"),
         "first": min(stamps) if stamps else None, "last": max(stamps) if stamps else None,
         "tokens": {"fresh": F, "cached": C, "output": O},
+        "hourly": hourly,
         "sessions_detail": sessions,
     }, indent=1))
     raise SystemExit
@@ -219,6 +236,44 @@ print("\n=== Heaviest sessions ===")
 print(f"  {'Wh':>8} {'kg CO2':>7} {'msgs':>6}  project")
 for s in sessions[:8]:
     print(f"  {s['wh']:8.0f} {s['wh']/1000*g/1000:7.2f} {s['msgs']:6d}  {s['project'][:52]}")
+
+if a.by and hourly:
+    if a.tz:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(a.tz)
+    else:
+        tz = datetime.datetime.now().astimezone().tzinfo
+    UTC = datetime.timezone.utc
+    LABEL = {"day": "%Y-%m-%d", "week": "%G-W%V", "month": "%Y-%m"}
+    DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+    bins = {}
+    for k, (bf, bc, bo) in hourly.items():
+        # "YYYY-MM-DDTHH" is UTC; move it into the display zone before bucketing
+        local = datetime.datetime.strptime(k, "%Y-%m-%dT%H").replace(tzinfo=UTC).astimezone(tz)
+        key = (f"{local.hour:02d}:00" if a.by == "hour" else
+               DOW[local.weekday()] if a.by == "dow" else local.strftime(LABEL[a.by]))
+        bins[key] = bins.get(key, 0.0) + (bf * R_IN + bc * R_CACHE + bo * R_OUT) / 1000
+
+    if a.by == "day":       # keep calendar gaps visible rather than silently closing them
+        d0, d1 = (datetime.date.fromisoformat(x) for x in (min(bins), max(bins)))
+        for n in range((d1 - d0).days + 1):
+            bins.setdefault(str(d0 + datetime.timedelta(days=n)), 0.0)
+    order = (DOW if a.by == "dow" else
+             [f"{h:02d}:00" for h in range(24)] if a.by == "hour" else sorted(bins))
+    order = [k for k in order if k in bins]
+
+    zname = a.tz or datetime.datetime.now().astimezone().strftime("%Z")
+    unit = "hour of day" if a.by == "hour" else "day of week" if a.by == "dow" else a.by
+    print(f"\n=== Energy by {unit} ({zname}) — kWh, and {a.grid} miles ===")
+    peak = max(bins.values()) or 1
+    for k in order:
+        v = bins[k]
+        bar = "█" * round(40 * v / peak)
+        print(f"  {k:<11} {v:7.2f} kWh {v*g/1000*1000/MILE_G:6.0f} mi  {bar}")
+    nz = [v for v in bins.values() if v > 0]
+    print(f"  {len(nz)} active {unit} bins | busiest {max(bins, key=bins.get)} at "
+          f"{peak:.2f} kWh | mean over active bins {sum(nz)/len(nz):.2f} kWh")
 
 print("\nToken counts are measured; energy, CO2 and water are derived from third-party rates "
       "with 2-4x method uncertainty.")
