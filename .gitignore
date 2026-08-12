@@ -1,5 +1,8 @@
-# Build products — regenerate with `make`
+# The two report PDFs ARE committed: they are the deliverable, and rebuilding them needs
+# pandoc + xelatex + DejaVu fonts. Ignore any other stray PDFs.
 *.pdf
+!claude-environmental-impact-report.pdf
+!opus-researcher-footprint-brief.pdf
 
 # Python
 __pycache__/

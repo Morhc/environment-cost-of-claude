@@ -34,5 +34,7 @@ $(BRIEF_FIG): make_scenario_figure.py data/sourced_data.json
 scenario:
 	python3 scenario_calc.py
 
+# Note: both PDFs are committed to the repo (they are the deliverable). `make clean`
+# removes them locally; `git checkout` restores the committed copies.
 clean:
 	rm -f claude-environmental-impact-report.pdf opus-researcher-footprint-brief.pdf
