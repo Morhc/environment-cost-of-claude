@@ -1,14 +1,56 @@
-# Environmental footprint of Claude — analysis, figures, and reports
+# Environment Cost of Claude
 
-Two documents and everything needed to rebuild them:
+What can actually be quantified about the environmental footprint of using Anthropic's Claude
+models, from published sources — plus a tool that measures your own usage and costs it in CO₂ and
+water.
 
-- **`claude-environmental-impact-report.pdf`** (23 pp) — source-critical analysis of what can be
+## Measure your own usage first
+
+Claude Code writes a transcript for every session, and each assistant message carries the token
+counters the serving stack returned. That is real measurement, not an estimate. This repo turns it
+into energy, CO₂ and water:
+
+```bash
+python3 measure_usage.py                    # this machine
+./collect_usage.sh trillium other-host      # every machine you use, merged
+```
+
+**One machine is almost always an undercount.** There is no central ledger — transcripts live on
+whichever machine ran them, and for this author a laptop-only run missed 62% of the total, which was
+sitting on an HPC login node. `collect_usage.sh` pipes the same script over SSH to hosts you name
+(they need only `python3`), discovers transcript roots scoped to `$USER`, and merges the results.
+Only token counts come back; no message content is ever read, and nothing leaves your machines.
+
+```bash
+python3 measure_usage.py --list-grids       # 15 accounting conventions, cheapest first
+python3 measure_usage.py --grid Cambium_PJM_West --days 30
+python3 measure_usage.py --by hour --tz America/Vancouver
+python3 measure_usage.py --plot usage.png --event 2026-07-24='Plan limit raised'
+```
+
+Full options and caveats in [Costing your own usage](#costing-your-own-usage) below. The headline
+number depends enormously on which accounting convention you pick — across the fifteen the tool
+carries, the same electricity spans a factor of seven — which is the point of the report.
+
+## The documents
+
+- **`claude-environmental-impact-report.pdf`** (28 pp) — source-critical analysis of what can be
   quantified about Claude's environmental footprint from Anthropic's disclosures, the academic
-  literature, and third-party estimates.
-- **`opus-researcher-footprint-brief.pdf`** (11 pp) — companion brief costing one heavy Opus
-  research session in CO₂ and water, with a signed audit of every excluded term.
+  literature, and third-party estimates. Appendix C carries bottom-up training bounds.
+- **`opus-researcher-footprint-brief.pdf`** (16 pp) — companion brief costing one heavy Opus
+  research session in CO₂ and water, with a signed audit of every excluded term. Section 5 reports
+  one user's measured usage, the only measured content in either document.
+
+The central finding is an absence: **Anthropic has published no first-party environmental data of
+any kind.** Every Claude-specific number in both documents is therefore third-party, and the
+credibility of each is assessed individually.
 
 Start with `HANDOFF.md` for project state and open threads, and `CLAUDE.md` for the working rules.
+
+## License
+
+Software is MIT. The written work, figures and data are CC BY 4.0. Use any of it for any purpose,
+with attribution. See `LICENSE`.
 
 ## Rebuild
 
@@ -84,6 +126,7 @@ central case, update the numbers in `researcher_brief.md` Sections 0, 3, and 4 (
 inline, not templated) and re-run `make brief`.
 
 ## Costing your own usage
+<a id="costing-your-own-usage"></a>
 
 `measure_usage.py` reads the token counters Claude Code writes to `~/.claude/projects/*/*.jsonl`
 and carries them through to CO2 and water. It opens only the usage counters, never message
