@@ -134,8 +134,8 @@ individually.
   `$USER`. The account name is deliberately not recorded here — it lives in the maintainer's
   own notes, so this repo stays user-agnostic.
 - **Scope remote discovery to `$USER`.** A first version globbed `/scratch/*/.claude/projects`,
-  which matched a *colleague's* group-readable directory (`cchin13`) and silently added ~2.7 kWh of
-  someone else's usage. Fixed to `/scratch/$USER`. On a shared cluster, wildcards over home-like
+  which matched another user's group-readable directory on the shared cluster and silently added
+  ~2.7 kWh of someone else's usage. Fixed to `/scratch/$USER`. On a shared cluster, wildcards over home-like
   paths are both wrong and not yours to read.
 - **Three path-layout traps, all found the hard way, all now handled in `scan()`:** nested
   subagent/workflow transcripts (22% of laptop energy), the older *flat* `projects/<session>.jsonl`
