@@ -60,6 +60,7 @@ matter if you don't have it.
 ├── make_scenario_figure.py      # session figure (brief)
 ├── scenario_calc.py             # session arithmetic; prints all permutations
 ├── extract_avert.py             # re-derives AVERT marginal rates from the EPA workbook
+├── training_bounds.py           # derived training-energy bounds behind Appendix C
 ├── figures/*.png                # generated
 ├── CLAUDE.md                    # project conventions
 └── HANDOFF.md                   # state, decisions, open threads

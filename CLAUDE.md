@@ -9,9 +9,19 @@ placeholder numbers, no plausible-sounding extrapolations. Where no published es
 notably the Claude Fable 5 / Claude 5 generation — the gap is *displayed as a finding*
 ("No published data"), not papered over.
 
-The companion brief (`researcher_brief.md`) is the one deliberate exception: it exists to do
-scenario arithmetic the reader can't avoid. Everything there is explicitly labeled **derived**,
-every input rate is sourced, and Section 4 audits the direction of every excluded term.
+There are exactly two deliberate exceptions, both quarantined and both labeled:
+
+1. The companion brief (`researcher_brief.md`) exists to do scenario arithmetic the reader can't
+   avoid. Everything there is explicitly labeled **derived**, every input rate is sourced, and
+   Section 4 audits the direction of every excluded term.
+2. **Appendix C of the main report** (bottom-up training bounds, added 2026-08-11 at the user's
+   explicit direction after being offered the alternatives). It is confined to the appendix and
+   must stay out of the body, the tables, and Figure 2 — the training panel stays empty. Every
+   number carries a "derived, not published" marker, the width is presented as the finding, and
+   the direction of each excluded term is signed. Reproducible via `training_bounds.py`.
+
+If a third exception is ever proposed, it needs the same treatment: quarantined location, labeled
+values, signed error directions, and a script that regenerates it.
 
 ## The honesty rule
 

@@ -83,11 +83,16 @@ individually.
   PJM's own flat-weighted 2022 marginal rate (457) differ by a third for roughly the same
   footprint. Both are printed rather than reconciled.
 
-## Open threads / what I'd do next
+- **Bottom-up training bounds — done**, as Appendix C of the main report, at the user's explicit
+  direction (offered four placements; they chose the labeled appendix). `training_bounds.py`
+  calibrates Wh/FLOP against Llama 3.1 405B's disclosed 3.8e25 FLOP + 30.84M H100-hours rather
+  than stacking hardware guesses, then applies it to Epoch's Claude FLOP estimates. Claude 3 Opus
+  ≈ **10.4 GWh** central (7.2–14.3 across the MFU band), 3.5 Sonnet ≈ 17.5, 3.7 Sonnet ≈ 22.0.
+  Validation: Meta's disclosed 8,930 tCO₂e ÷ our 21.6 GWh backs out 414 gCO₂/kWh, a real US grid
+  factor. The honest width is the Epoch FLOP uncertainty, not the conversion — 3.7 Sonnet spans
+  4.9–89.6 GWh on Epoch's own stated FLOP range. CLAUDE.md now records this as exception #2.
 
-- **A bottom-up bounding analysis** for the undisclosed models (Trainium2/TPU power draw, assumed
-  utilization, PUE) was offered and not taken up. It would give defensible upper/lower bounds where
-  the strict rule currently leaves blanks.
+## Open threads / what I'd do next
 - **No measured long-context energy curve exists for any Claude model** — the 200k–1M context window
   is the signature feature and the biggest unmeasured term. Worth flagging to anyone with API access
   and a power meter.

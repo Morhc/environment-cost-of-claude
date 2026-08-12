@@ -44,7 +44,7 @@ The critique that large language models carry an unacceptable environmental cost
 
 The user's framing for this project included five starting intuitions: that impact is complex and locally mediated through data-center siting and cooling; that training and inference are distinct cost centers; that per-prompt impact scales with tokens; that aggregate use, not individual use, dominates; and that the information environment is polluted. Each intuition is tested against sources in the sections that follow, and each turns out to be substantially correct — with quantitative refinements that change how the story should be told.
 
-A ground rule adopted throughout, at the user's direction, is **strictness**: only published, sourced values appear in tables and figures. Where a model generation has no published estimate (notably the Claude Fable 5 / Claude 5 generation), the gap is displayed as a finding rather than papered over with extrapolation. Where this report performs arithmetic on sourced inputs (unit conversions, per-token divisions), the derivation is stated inline and labeled as such. A provenance note: this report was researched and compiled using Claude itself; all sources cited were retrieved and cross-checked during the research session, and the reader can verify every claim against the linked originals in Appendix B.
+A ground rule adopted throughout, at the user's direction, is **strictness**: only published, sourced values appear in tables and figures. Where a model generation has no published estimate (notably the Claude Fable 5 / Claude 5 generation), the gap is displayed as a finding rather than papered over with extrapolation. Where this report performs arithmetic on sourced inputs (unit conversions, per-token divisions), the derivation is stated inline and labeled as such. One section departs from this: **Appendix C** constructs bottom-up bounds on Claude training energy from published FLOP estimates, because the alternative — leaving a reader with no sense of scale at all — serves them worse. It is quarantined in the appendix, every value is marked derived, and it feeds nothing in the body or the figures. A provenance note: this report was researched and compiled using Claude itself; all sources cited were retrieved and cross-checked during the research session, and the reader can verify every claim against the linked originals in Appendix B.
 
 ## Definitions and measurement boundaries
 
@@ -159,7 +159,7 @@ Figure 4 is the plot this project anticipated — energy versus tokens, one pane
 
 Beyond the Jegham panel, two further Claude-specific estimates exist. **Simon Couch's January 2026 analysis of AI coding agents** — the most transparent Claude-specific estimate available — anchors on Epoch's GPT-4o figure and scales by Anthropic's API price ratios (a stated, testable assumption: that price tracks marginal compute) to derive **~390 Wh per million fresh input tokens, ~1,950 Wh per million output tokens, and ~39 Wh per million cached-read tokens** for Opus 4.5/Sonnet 4.5, validated against 8,825 logged API calls; a median Claude Code session (~500k input + 90k output tokens) lands at **~41 Wh**, and a heavy day of agentic coding at ~1.3 kWh — about the daily electricity of a refrigerator. **Digital Applied's April 2026 synthesis** estimates Claude Opus 4.7 at **0.78 Wh for a standard chat and 14.1 Wh at 800k-token context**, with self-declared 2–3× uncertainty and a methodology (architecture guesses + ML.ENERGY per-FLOP data) that earns it hollow markers and a medium-low credibility flag. For the **Claude Fable 5 / Claude 5 generation, no estimate of any provenance exists** — searched across Anthropic properties, arXiv, trackers, and the gray literature.
 
-For completeness, the claims audit (Section 8) documents widely circulated per-model figures that failed source-tracing — most prominently "Claude 3 Opus = 4.05 Wh, Claude 3 Haiku = 0.22 Wh," which propagates through SEO content with no traceable primary methodology, and a "12 Wh per Claude response" figure that conflicts with everything credible by an order of magnitude. These are excluded from all figures.
+For completeness, the claims audit (Section 9) documents widely circulated per-model figures that failed source-tracing — most prominently "Claude 3 Opus = 4.05 Wh, Claude 3 Haiku = 0.22 Wh," which propagates through SEO content with no traceable primary methodology, and a "12 Wh per Claude response" figure that conflicts with everything credible by an order of magnitude. These are excluded from all figures.
 
 ## What this means in practical units
 
@@ -259,3 +259,48 @@ Table: All located Claude-specific quantitative estimates, with credibility asse
 **Discourse & audit.** Heatmap News (Anthropic carbon analysis, 2026) · SINK Project (sinkproject.com/company/anthropic) · Stanford FMTI (May 2024) · MIT Technology Review, "We did the math on AI's energy footprint" (May 2025) · The Register; Windows Central (Ren & de Vries-Gao critiques of Google, Aug 2025) · Hannah Ritchie, Sustainability by Numbers (Aug 2025) · Sean Goedecke (water-claim tracing) · Andy Masley (water essays) · AI Weekly (UC Riverside revision, Jul 2026) · Our World in Data (data-center energy reconciliation) · Towards Data Science (Altman claim analysis) · Simon Willison (ai-energy-usage tag) · Tunley Environmental (procurement guidance, 2026) · Couch, simonpcouch.com/blog/2026-01-20-cc-impact · Digital Applied (Apr 2026) · devera.ai · Ketan Joshi (May 2026; single-sourced, flagged).
 
 *Compiled August 11, 2026. All URLs were live at retrieval. Figures and underlying data table: sourced_data.json accompanying this report.*
+
+\newpage
+
+# Appendix C: Bottom-up bounds on Claude training energy {.unnumbered}
+
+**Everything in this appendix is derived, not published.** It is a deliberate, single exception to the strictness rule governing the rest of this report, and it is confined here rather than folded into the body, the tables, or Figure 2. The reason for making the exception is that "no training disclosure exists" is a true but unsatisfying answer to a reader who wants to know whether a Claude training run is closer to a household's annual electricity or to a small country's. Bounds can be constructed from published inputs; they are wide, and their width is the point. Nothing here should be cited as a measurement, and none of it changes the report's finding that Anthropic has disclosed nothing.
+
+## Method {.unnumbered}
+
+The obvious route — assume hardware, assume utilization, assume PUE, multiply — stacks three factor-of-two guesses. This appendix instead calibrates against the one modern frontier run for which the developer disclosed *both* training compute and GPU-hours, and then applies that measured intensity to Epoch AI's compute estimates for Claude.
+
+Meta disclosed 3.8×10^25^ FLOP and 30.84M H100-hours for Llama 3.1 405B. At the H100's 700 W TDP that is 21.6 GWh chip-only, implying **5.68×10^-16^ Wh per FLOP**, or 5.68 GWh per 10^25^ FLOP, and a model FLOP utilization of 34.6% — comfortably inside the 25–50% band the training literature supports. Sweeping MFU across that band gives a conversion range of 3.93–7.86 GWh per 10^25^ FLOP, a spread of 2.0×, within which the Llama-calibrated value sits.
+
+That calibration survives an independent check. Meta separately disclosed 8,930 tCO~2~e location-based for the same run; dividing by the 21.6 GWh derived above backs out a grid intensity of **414 gCO~2~/kWh**, which is a plausible US industrial grid factor (eGRID RFCW is 413, the US average 348). Had the TDP-based energy been badly wrong, that quotient would have landed nowhere near a real grid.
+
+Applying this to Epoch's FLOP estimates, with AWS's PUE of 1.14 to move from chip to wall:
+
+Table: Derived training energy for Claude models, GWh at the wall. **Derived, not published.** Low/high span the MFU band only.
+
+| Model | Epoch FLOP estimate | Low | Central | High |
+|:---|---:|---:|---:|---:|
+| Claude 3 Opus | 1.6×10^25^ | 7.2 | **10.4** | 14.3 |
+| Claude 3.5 Sonnet | 2.7×10^25^ | 12.1 | **17.5** | 24.2 |
+| Claude 3.7 Sonnet | 3.4×10^25^ | 15.2 | **22.0** | 30.5 |
+| Claude 3.7 Sonnet, *using Epoch's own FLOP range* | 1.1×10^25^–1.0×10^26^ | 4.9 | — | 89.6 |
+
+Table: Derived training carbon, tCO~2~, at the central conversion. **Derived, not published.** The grid actually used for any Claude training run is undisclosed.
+
+| Model | NYUP (110) | US avg (348) | RFCW (413) | AVERT Mid-Atl. marginal (618) |
+|:---|---:|---:|---:|---:|
+| Claude 3 Opus | 1,140 | 3,610 | 4,280 | 6,410 |
+| Claude 3.5 Sonnet | 1,920 | 6,090 | 7,220 | 10,810 |
+| Claude 3.7 Sonnet | 2,420 | 7,660 | 9,090 | 13,620 |
+
+## Reading the bounds honestly {.unnumbered}
+
+**The dominant uncertainty is the input, not the conversion.** Epoch flags its Claude figures as low-precision, and for Claude 3.7 Sonnet publishes a range spanning a factor of 9 — which alone swamps the 2.0× conversion band and the ~4× spread across grid conventions. The last row of the energy table is the honest width: somewhere between 5 and 90 GWh. Anyone quoting the central column without that row is overstating what is known.
+
+**Direction of the remaining terms.** Excluded and pushing the true figure *up*: host CPU and memory, networking and storage, failed and abandoned experimental runs (which no lab reports and which at frontier scale are not a rounding error), post-training and RLHF compute, and embodied emissions from the hardware itself. Pushing *down*: TDP overstates real draw, and Anthropic trains substantially on Trainium2 and TPUs, which may achieve more useful FLOP per joule than the H100 this calibration is anchored to — though their per-chip power is unpublished, so the sign is confident while the size is not. On balance the exclusions are more numerous and more one-directional than the offsets, so the central column is more likely low than high.
+
+**What the numbers license.** A frontier Claude training run of the 3-generation scale is on the order of **10–20 GWh, or a few thousand tonnes of CO~2~** — comparable to the disclosed Llama 3.1 405B run, an order of magnitude above Patterson's GPT-3 estimate, and roughly 25–50× BLOOM's measured 433 MWh. In units that carry intuition, the Claude 3 Opus central figure is about 7.9 million heavy researcher sessions of the kind costed in the companion brief, ~43 billion median Gemini prompts, or **about eleven hours of the New Carlisle campus running at its observed 910 MW** — half a day of one site. That last comparison is the most useful one in this appendix, because it quantifies why the literature expects lifetime inference to dominate training for a deployed model, and why the aggregate buildout in Section 8, not the training runs, is where Anthropic's environmental materiality sits.
+
+**One negative result.** The SINK Project's external estimate of ~5,000 tCO~2~e for "a Claude 4 training run" sits *below* this appendix's central estimate for Claude 3.7 Sonnet — a lower figure for a later, larger model. That is not corroboration; it is a reason to continue treating the SINK figure as low-credibility, as Section 4 does.
+
+*Reproducible: `training_bounds.py`, which prints every intermediate value.*
