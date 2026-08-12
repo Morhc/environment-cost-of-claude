@@ -50,6 +50,11 @@ ap.add_argument("--by", choices=["day", "week", "month", "hour", "dow"],
 ap.add_argument("--tz", help="timezone for --by, e.g. America/Vancouver or America/Toronto. "
                 "Transcripts are stored in UTC, so this only changes how bins are drawn. "
                 "Default: this machine's local zone.")
+ap.add_argument("--plot", metavar="PNG", help="write an all-time figure: daily energy and "
+                "cumulative CO2, each with its uncertainty band")
+ap.add_argument("--event", action="append", metavar="DATE=LABEL", default=[],
+                help="annotate a date on the plot, e.g. --event 2026-07-24='Pro -> Max'. "
+                     "Repeatable.")
 a = ap.parse_args()
 
 
@@ -274,6 +279,103 @@ if a.by and hourly:
     nz = [v for v in bins.values() if v > 0]
     print(f"  {len(nz)} active {unit} bins | busiest {max(bins, key=bins.get)} at "
           f"{peak:.2f} kWh | mean over active bins {sum(nz)/len(nz):.2f} kWh")
+
+if a.plot and hourly:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import MaxNLocator
+
+    # Palette: the dataviz reference instance, light mode — same hexes as make_figures.py.
+    # Validated with scripts/validate_palette.js (all six checks pass).
+    SURFACE, INK, INK2 = "#fcfcfb", "#0b0b0b", "#52514e"
+    MUTED, GRIDC, BLUE, ORANGE = "#898781", "#e1e0d9", "#2a78d6", "#eb6834"
+    plt.rcParams.update({
+        "figure.facecolor": SURFACE, "axes.facecolor": SURFACE, "savefig.facecolor": SURFACE,
+        "font.family": "DejaVu Sans", "text.color": INK, "axes.edgecolor": "#c3c2b7",
+        "axes.labelcolor": INK2, "xtick.color": MUTED, "ytick.color": MUTED,
+        "axes.grid": True, "grid.color": GRIDC, "grid.linewidth": 0.7, "axes.axisbelow": True,
+        "axes.spines.top": False, "axes.spines.right": False, "font.size": 9, "figure.dpi": 200,
+    })
+
+    if a.tz:
+        from zoneinfo import ZoneInfo
+        ptz = ZoneInfo(a.tz)
+    else:
+        ptz = datetime.datetime.now().astimezone().tzinfo
+    zlabel = a.tz or datetime.datetime.now().astimezone().strftime("%Z")
+
+    daily = {}
+    for k, (bf, bc, bo) in hourly.items():
+        loc = (datetime.datetime.strptime(k, "%Y-%m-%dT%H")
+               .replace(tzinfo=datetime.timezone.utc).astimezone(ptz))
+        daily[loc.date()] = daily.get(loc.date(), 0.0) + (bf*R_IN + bc*R_CACHE + bo*R_OUT) / 1000
+    d0, d1 = min(daily), max(daily)
+    days = [d0 + datetime.timedelta(days=n) for n in range((d1 - d0).days + 1)]
+    kwh = [daily.get(d, 0.0) for d in days]            # zero days kept: the gaps are signal
+    cum = [sum(kwh[:i+1]) for i in range(len(kwh))]
+
+    g_lo, g_hi = min(GRIDS.values()), max(GRIDS.values())
+    lo_name = min(GRIDS, key=GRIDS.get).replace("_", " ")
+    hi_name = max(GRIDS, key=GRIDS.get).replace("_", " ")
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9.2, 6.4), sharex=True)
+    fig.subplots_adjust(left=0.085, right=0.975, top=0.855, bottom=0.09, hspace=0.28)
+
+    # (a) daily energy. Band = the low end of the rate's stated 2-4x method uncertainty.
+    ax1.fill_between(days, [v/2 for v in kwh], [v*2 for v in kwh], color=BLUE, alpha=0.13, lw=0)
+    ax1.plot(days, kwh, color=BLUE, lw=2, solid_capstyle="round")
+    ax1.set_ylabel("kWh per day", fontsize=8.5)
+    ax1.set_title("a. Daily energy — band is the ×/÷2 method uncertainty on the per-token rates",
+                  loc="left", fontweight="bold", fontsize=9.5)
+    pk = max(range(len(kwh)), key=lambda i: kwh[i])
+    ax1.annotate(f"{kwh[pk]:.0f} kWh", (days[pk], kwh[pk]), textcoords="offset points",
+                 xytext=(0, 7), ha="center", fontsize=7.5, color=INK2)
+    ax1.yaxis.set_major_locator(MaxNLocator(5))
+
+    # (b) cumulative CO2. Band = the sourced spread across grid accounting conventions.
+    ax2.fill_between(days, [c*g_lo/1000 for c in cum], [c*g_hi/1000 for c in cum],
+                     color=ORANGE, alpha=0.13, lw=0)
+    ax2.plot(days, [c*g/1000 for c in cum], color=ORANGE, lw=2, solid_capstyle="round")
+    ax2.set_ylabel("cumulative kg CO$_2$", fontsize=8.5)
+    ax2.set_title(f"b. Cumulative CO$_2$ — line is {a.grid.replace('_',' ')}; band spans every "
+                  f"grid convention ({lo_name} → {hi_name})",
+                  loc="left", fontweight="bold", fontsize=9.5)
+    for val, name, off in ((g_hi, hi_name, 4), (g, a.grid.replace("_", " "), 0),
+                           (g_lo, lo_name, -10)):
+        ax2.annotate(f"{cum[-1]*val/1000:.0f} kg", (days[-1], cum[-1]*val/1000),
+                     textcoords="offset points", xytext=(6, off), fontsize=7.5,
+                     color=INK2 if val == g else MUTED, va="center")
+    ax2.yaxis.set_major_locator(MaxNLocator(5))
+
+    for spec in a.event:
+        ds, _, lab = spec.partition("=")
+        try:
+            ed = datetime.date.fromisoformat(ds.strip())
+        except ValueError:
+            continue
+        for ax in (ax1, ax2):
+            ax.axvline(ed, color=INK2, lw=1.1, ls=(0, (4, 3)), alpha=0.75, zorder=1)
+        ax1.annotate(lab.strip() or ds.strip(), (ed, ax1.get_ylim()[1]),
+                     textcoords="offset points", xytext=(5, -10), fontsize=8,
+                     color=INK2, fontweight="bold")
+        before = [v for d, v in zip(days, kwh) if d < ed]
+        after = [v for d, v in zip(days, kwh) if d >= ed]
+        if before and after:
+            ax1.annotate(f"mean/day  {sum(before)/len(before):.1f} → "
+                         f"{sum(after)/len(after):.1f} kWh",
+                         (ed, ax1.get_ylim()[1]), textcoords="offset points", xytext=(5, -24),
+                         fontsize=7.5, color=MUTED)
+
+    ax2.set_xlabel(f"date ({zlabel})", fontsize=8.5)
+    fig.autofmt_xdate(rotation=0, ha="center")
+    nsrc = len(sources or [1])
+    fig.suptitle(f"Claude Code usage, {d0} to {d1} — {len(sessions)} sessions across "
+                 f"{nsrc} machine{'s' if nsrc != 1 else ''}\n"
+                 f"{kwh and sum(kwh):.0f} kWh measured in tokens, costed with published rates",
+                 x=0.085, y=0.985, ha="left", fontsize=11.5, fontweight="bold", color=INK)
+    fig.savefig(a.plot, bbox_inches="tight")
+    print(f"\nwrote {a.plot}  ({len(days)} days, {sum(kwh):.1f} kWh)")
 
 print("\nToken counts are measured; energy, CO2 and water are derived from third-party rates "
       "with 2-4x method uncertainty.")

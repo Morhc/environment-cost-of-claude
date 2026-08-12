@@ -134,6 +134,18 @@ python3 measure_usage.py --by week   # or --by month
 
 `--by` works with `--merge` too, so multi-machine history bins on a single wall clock.
 
+For an all-time figure — daily energy and cumulative CO2, each with its uncertainty band, plus
+annotated events:
+
+```bash
+python3 measure_usage.py --plot figures/usage.png --tz America/Vancouver \
+        --event 2026-07-24='Pro -> Max'
+```
+
+The daily band is the ×/÷2 method uncertainty on the per-token rates; the cumulative band spans
+every grid convention in `sourced_data.json`. `--event` is repeatable and prints the mean-per-day
+on either side of each marker.
+
 ## A note on the numbers
 
 Anthropic publishes no environmental data, so nothing here about Claude is measured — it is all
