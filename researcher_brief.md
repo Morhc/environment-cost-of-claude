@@ -203,7 +203,7 @@ For scale, the 237.5 kWh total across these 56 sessions is **~83 kg CO~2~e** at 
 
 **What this does and does not license.** These are Claude Code sessions, and their "input" is dominated by tool results — files read, commands run, searches returned — rather than by material a person pasted in. That is a genuinely different workload from the paper-reading researcher the scenario models, even though both are input-heavy, and it is why the output share is presented as a range rather than a point. It is also one user: n = 1, no claim of representativeness, and it excludes Desktop and web usage entirely. What it grounds well is the *mechanism* — an accumulating context, re-read under near-total caching, with cached reads dominating the energy — which is the structural claim the whole brief rests on, and which the measurement confirms.
 
-*Reproducible on any machine with Claude Code history: `measure_usage.py`.*
+*Reproducible on any machine with Claude Code history: `measure_usage.py`, which carries the same counters through to CO~2~ and water across every grid convention in this section.*
 
 # How a researcher can actually reduce this
 

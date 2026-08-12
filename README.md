@@ -62,7 +62,7 @@ matter if you don't have it.
 ├── extract_avert.py             # re-derives AVERT marginal rates from the EPA workbook
 ├── training_bounds.py           # derived training-energy bounds behind Appendix C
 ├── extract_cambium.py           # re-derives NREL Cambium long-run marginal rates
-├── measure_usage.py             # measures token mix from local Claude Code transcripts
+├── measure_usage.py             # your own Claude Code usage -> tokens, energy, CO2, water
 ├── figures/*.png                # generated
 ├── CLAUDE.md                    # project conventions
 └── HANDOFF.md                   # state, decisions, open threads
@@ -80,6 +80,24 @@ python3 scenario_calc.py
 It prints every permutation plus carbon and water at four grid intensities. If you change the
 central case, update the numbers in `researcher_brief.md` Sections 0, 3, and 4 (they are written
 inline, not templated) and re-run `make brief`.
+
+## Costing your own usage
+
+`measure_usage.py` reads the token counters Claude Code writes to `~/.claude/projects/*/*.jsonl`
+and carries them through to CO2 and water. It opens only the usage counters, never message
+content, and nothing leaves the machine.
+
+```bash
+python3 measure_usage.py                  # everything, US-average grid
+python3 measure_usage.py --days 30        # last 30 days
+python3 measure_usage.py --grid Cambium_PJM_West   # a specific accounting convention
+python3 measure_usage.py --list-grids     # all 15 conventions, cheapest first
+```
+
+The token counts are measured. Everything downstream — energy, CO2, water — is derived from
+third-party rates carrying 2–4× method uncertainty, and the spread across accounting conventions
+alone is ~7×. The tool prints all of them rather than one number, for the reasons in Section 4 of
+the brief.
 
 ## A note on the numbers
 
