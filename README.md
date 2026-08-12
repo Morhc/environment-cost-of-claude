@@ -63,6 +63,7 @@ matter if you don't have it.
 ├── training_bounds.py           # derived training-energy bounds behind Appendix C
 ├── extract_cambium.py           # re-derives NREL Cambium long-run marginal rates
 ├── measure_usage.py             # your own Claude Code usage -> tokens, energy, CO2, water
+├── collect_usage.sh             # merges usage across machines (local + ssh hosts)
 ├── figures/*.png                # generated
 ├── CLAUDE.md                    # project conventions
 └── HANDOFF.md                   # state, decisions, open threads
@@ -99,17 +100,24 @@ third-party rates carrying 2–4× method uncertainty, and the spread across acc
 alone is ~7×. The tool prints all of them rather than one number, for the reasons in Section 4 of
 the brief.
 
-**It sees one machine.** Claude Code keeps transcripts per-machine with no central ledger, so a
-full personal total means running it everywhere and adding up:
+**One run sees one machine, and that is usually a large undercount.** Claude Code keeps
+transcripts per-machine with no central ledger. For this author, a laptop-only run missed 62% of
+the total, which lived on an HPC login node. Use the collector:
 
 ```bash
-python3 measure_usage.py --json > usage-$(hostname -s).json     # on each machine
-jq -s '{kwh: (map(.kwh)|add)}' usage-*.json                     # then together
+./collect_usage.sh                    # this machine only
+./collect_usage.sh trillium           # this machine + a remote host
+./collect_usage.sh trillium other-box # ...and more
 ```
 
-Four things stay uncounted even then: Claude Code on remote hosts (transcripts live on the host you
-ran it on), cloud sessions (server-side, never written to local disk), Claude Desktop, and
-claude.ai. There is no way to recover those from the filesystem.
+Remote hosts need nothing but `python3` — the script is piped over stdin and run with `--raw`,
+which applies no rates and reads no data files. Only token counts come back, never message
+content. Remote roots are auto-discovered and **scoped to `$USER`**: a wildcard like
+`/scratch/*/.claude/projects` matches other people's directories on a shared cluster, which both
+inflates your total and reads what isn't yours.
+
+Two things stay uncounted regardless: cloud sessions (server-side, never written to local disk)
+and Claude Desktop / claude.ai. There is no way to recover those from a filesystem.
 
 ## A note on the numbers
 

@@ -124,6 +124,20 @@ individually.
   moved from 1.31 kWh / 456 g / 4.4 L to **0.94 kWh / 326 g / 3.11 L**. Caveat recorded in
   Section 5: Claude Code's input is mostly tool results, a different workload from the
   paper-reading scenario modelled.
+- **Usage measurement is now multi-source and operational** (`collect_usage.sh`). It runs
+  `measure_usage.py --raw` locally and pipes the same script over SSH to named hosts (remote needs
+  only python3; `--raw` reads no data files), then merges. For this user: laptop **308 kWh** +
+  Trillium **492 kWh** = **800 kWh / 279 kg CO₂e / ~700 driving miles** over 58 days, 104 sessions.
+  **62% of the total was on Trillium**, so every laptop-only figure quoted earlier was a 2.6×
+  undercount. Trillium roots are `/home/jissa/.claude/projects` and `/scratch/jissa/.claude/projects`.
+- **Scope remote discovery to `$USER`.** A first version globbed `/scratch/*/.claude/projects`,
+  which matched a *colleague's* group-readable directory (`cchin13`) and silently added ~2.7 kWh of
+  someone else's usage. Fixed to `/scratch/$USER`. On a shared cluster, wildcards over home-like
+  paths are both wrong and not yours to read.
+- **Three path-layout traps, all found the hard way, all now handled in `scan()`:** nested
+  subagent/workflow transcripts (22% of laptop energy), the older *flat* `projects/<session>.jsonl`
+  layout (all of Trillium scratch), and file mtime as a proxy for history span (29 days vs a true
+  47). Each one silently undercounted, and each undercount flattered the result.
 - **Watch the nesting.** Subagent and workflow transcripts live at
   `<project>/<session>/subagents/[workflows/<wf>/]agent-*.jsonl`. A first version of the tool
   globbed only `*/*.jsonl` and so **undercounted energy by 22%**. Any per-user accounting that

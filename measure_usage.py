@@ -1,18 +1,29 @@
 """Claude Code transcripts -> tokens -> energy -> CO2 and water.
 
-Reads ONLY the usage counters on assistant messages in ~/.claude/projects, including the
-nested subagent and workflow transcripts (22% of energy on this machine).
-No message content is opened, and nothing leaves the machine.
+Reads ONLY the usage counters on assistant messages. No message content is opened.
 
-    python3 measure_usage.py                 # everything, US-average grid
-    python3 measure_usage.py --days 30       # last 30 days only
-    python3 measure_usage.py --grid PJM_West # cost it against a specific convention
-    python3 measure_usage.py --list-grids    # show every available convention
+    python3 measure_usage.py                      # this machine, US-average grid
+    python3 measure_usage.py --days 30            # last 30 days
+    python3 measure_usage.py --grid Cambium_PJM_West
+    python3 measure_usage.py --list-grids
 
-Energy is DERIVED: measured token counts times Couch's (Jan 2026) per-token estimates for
-Opus 4.5 / Sonnet 4.5, which carry the 2-4x method uncertainty documented in the main report.
-The token counts are measured; everything downstream of them is not. Grid and water factors
-come from data/sourced_data.json, so run this from the project root.
+Claude Code stores transcripts per-machine with no central ledger, so one run is a LOWER BOUND.
+For a real personal total, collect from every machine and merge:
+
+    ./collect_usage.sh trillium                   # does all of the below for you
+
+    # or by hand:
+    python3 measure_usage.py --raw > local.json
+    ssh HOST 'python3 - --raw --root /home/USER/.claude/projects' < measure_usage.py > host.json
+    python3 measure_usage.py --merge local.json host.json
+
+`--raw` emits token counts with no rates applied and reads no data files, so it is safe to pipe to
+any host with a python3 and nothing else installed.
+
+Energy, CO2 and water are DERIVED: measured token counts times Couch's (Jan 2026) per-token
+estimates for Opus 4.5 / Sonnet 4.5, which carry 2-4x method uncertainty. The token counts are
+measured; nothing downstream of them is. Rates and grid factors come from data/sourced_data.json,
+so any mode except --raw must run from the project root.
 """
 import argparse
 import datetime
@@ -22,139 +33,160 @@ import os
 import statistics as st
 import time
 
-D = json.load(open("data/sourced_data.json"))
-c = D["couch_2026"]
-R_IN, R_OUT, R_CACHE = (c["wh_per_million_input_tokens"] / 1e6,
-                        c["wh_per_million_output_tokens"] / 1e6,
-                        c["wh_per_million_cached_read_tokens"] / 1e6)
-WUE_ON, WUE_OFF = 0.18, 3.142          # L/kWh, AWS multipliers used by Jegham et al. v6
-MILE_G = 400                           # EPA average passenger vehicle, gCO2/mile
-
-# Every grid convention the project carries, cheapest first. Three different questions:
-# attributional (eGRID), short-run marginal (AVERT/PJM), long-run marginal (Cambium).
-GRIDS = {f"eGRID_{k}": v for k, v in D["egrid_2023"]["gco2_per_kwh"].items()}
-GRIDS |= {f"AVERT_{k.replace(' ', '_')}": v for k, v in D["avert_2023"]["gco2_per_kwh"].items()}
-GRIDS |= {f"Cambium_{k}": v for k, v in D["cambium_2023_lrmer"]["gco2_per_kwh"].items()}
-GRIDS["PJM_2022_shortrun"] = D["pjm_emissions_2022"]["flat_load_marginal_gco2_per_kwh_derived"]
-
 ap = argparse.ArgumentParser(description=__doc__,
                              formatter_class=argparse.RawDescriptionHelpFormatter)
+ap.add_argument("--root", action="append", help="transcript root (repeatable); "
+                "default ~/.claude/projects")
 ap.add_argument("--days", type=float, help="only sessions active in the last N days")
-ap.add_argument("--grid", default="eGRID_US_avg", help="convention for the headline (default US average)")
+ap.add_argument("--grid", default="eGRID_US_avg", help="convention for the headline")
 ap.add_argument("--project", help="substring filter on the project directory name")
+ap.add_argument("--raw", action="store_true", help="emit token counts as JSON; applies no rates "
+                "and reads no data files, so it can be piped to a remote host")
+ap.add_argument("--merge", nargs="+", metavar="FILE", help="combine --raw JSON files and report")
 ap.add_argument("--list-grids", action="store_true", help="print all conventions and exit")
-ap.add_argument("--json", action="store_true",
-                help="emit totals as JSON, for summing across machines (see --help epilog)")
-ap.epilog = """
-This reads ONE machine's local history. Claude Code stores transcripts per-machine with no central
-ledger, so a full personal total means running this on each machine and adding the results:
-
-    # on each machine
-    python3 measure_usage.py --json > usage-$(hostname -s).json
-    # then, together
-    jq -s '{kwh: (map(.kwh)|add), sessions: (map(.sessions)|add)}' usage-*.json
-
-Still uncounted afterwards: Claude Code run on remote hosts (its transcripts live on those hosts),
-cloud sessions (server-side, never written locally), Claude Desktop, and claude.ai.
-"""
 a = ap.parse_args()
 
+
+def scan(roots, project_filter=None):
+    """Walk transcript roots and aggregate token counters per session.
+
+    Two path layouts exist and both must be handled -- missing either silently undercounts:
+      <project>/<session>.jsonl                      current layout
+      <session>.jsonl                                older flat layout (seen on Trillium scratch)
+    and subagent/workflow transcripts nest one or more levels deeper under
+      <project>/<session>/subagents/[workflows/<wf>/]agent-*.jsonl
+    Those carry real token spend and roll into their parent session.
+    """
+    agg = {}
+    for root in roots:
+        root = os.path.expanduser(root)
+        if not os.path.isdir(root):
+            continue
+        for path in glob.glob(f"{root}/**/*.jsonl", recursive=True):
+            parts = os.path.relpath(path, root).split(os.sep)
+            if len(parts) == 1:
+                project, session = "(flat)", parts[0].removesuffix(".jsonl")
+            else:
+                project, session = parts[0], parts[1].removesuffix(".jsonl")
+            if project_filter and project_filter not in project:
+                continue
+            f = c = o = m = 0
+            first = last = None
+            for line in open(path, errors="replace"):
+                try:
+                    d = json.loads(line)
+                except Exception:
+                    continue
+                if ts := d.get("timestamp"):
+                    first = min(first or ts, ts)
+                    last = max(last or ts, ts)
+                if d.get("type") != "assistant":
+                    continue
+                u = (d.get("message") or {}).get("usage")
+                if not isinstance(u, dict):
+                    continue
+                # top-level counters only; the `iterations` array restates the same numbers
+                f += (u.get("input_tokens") or 0) + (u.get("cache_creation_input_tokens") or 0)
+                c += u.get("cache_read_input_tokens") or 0
+                o += u.get("output_tokens") or 0
+                m += 1
+            if not m:
+                continue
+            s = agg.setdefault((root, project, session),
+                               dict(project=project, fresh=0, cached=0, out=0, msgs=0,
+                                    subagents=0, first=first, last=last))
+            s["fresh"] += f; s["cached"] += c; s["out"] += o; s["msgs"] += m
+            s["subagents"] += len(parts) > 2
+            if first: s["first"] = min(s["first"] or first, first)
+            if last: s["last"] = max(s["last"] or last, last)
+    return list(agg.values())
+
+
+def rates_and_grids():
+    """Loaded lazily so --raw needs no data files and can run on a bare remote host."""
+    D = json.load(open("data/sourced_data.json"))
+    c = D["couch_2026"]
+    R = (c["wh_per_million_input_tokens"] / 1e6, c["wh_per_million_cached_read_tokens"] / 1e6,
+         c["wh_per_million_output_tokens"] / 1e6)
+    G = {f"eGRID_{k}": v for k, v in D["egrid_2023"]["gco2_per_kwh"].items()}
+    G |= {f"AVERT_{k.replace(' ', '_')}": v for k, v in D["avert_2023"]["gco2_per_kwh"].items()}
+    G |= {f"Cambium_{k}": v for k, v in D["cambium_2023_lrmer"]["gco2_per_kwh"].items()}
+    G["PJM_2022_shortrun"] = D["pjm_emissions_2022"]["flat_load_marginal_gco2_per_kwh_derived"]
+    return R, G
+
+
+WUE_ON, WUE_OFF = 0.18, 3.142      # L/kWh, AWS multipliers used by Jegham et al. v6
+MILE_G = 400                       # EPA average passenger vehicle, gCO2/mile
+
 if a.list_grids:
-    for k, v in sorted(GRIDS.items(), key=lambda kv: kv[1]):
+    _, G = rates_and_grids()
+    for k, v in sorted(G.items(), key=lambda kv: kv[1]):
         print(f"  {k:<34} {v:6.1f} gCO2/kWh")
     raise SystemExit
-if a.grid not in GRIDS:
-    raise SystemExit(f"unknown grid {a.grid!r}; try --list-grids")
 
-# Transcripts nest: <project>/<session>.jsonl is the main thread, and
-# <project>/<session>/subagents/[workflows/<wf>/]agent-*.jsonl are the subagents it spawned.
-# Those subagent files carry real token spend and must be rolled into their parent session --
-# missing them undercounted this machine's total by 22%.
-ROOT = os.path.expanduser("~/.claude/projects")
-agg = {}
-for path in glob.glob(f"{ROOT}/**/*.jsonl", recursive=True):
-    parts = os.path.relpath(path, ROOT).split(os.sep)
-    if len(parts) < 2:
-        continue
-    project, session = parts[0], parts[1].removesuffix(".jsonl")
-    if a.project and a.project not in project:
-        continue
-    fresh = cached = out = msgs = 0
-    first = last = None
-    for line in open(path, errors="replace"):
-        try:
-            d = json.loads(line)
-        except Exception:
-            continue
-        if ts := d.get("timestamp"):
-            first = min(first or ts, ts)
-            last = max(last or ts, ts)
-        if d.get("type") != "assistant":
-            continue
-        u = (d.get("message") or {}).get("usage")
-        if not isinstance(u, dict):
-            continue
-        # top-level counters only; the `iterations` array restates the same numbers
-        fresh += (u.get("input_tokens") or 0) + (u.get("cache_creation_input_tokens") or 0)
-        cached += u.get("cache_read_input_tokens") or 0
-        out += u.get("output_tokens") or 0
-        msgs += 1
-    if not msgs:
-        continue
-    s = agg.setdefault((project, session),
-                       dict(project=project, msgs=0, fresh=0, cached=0, out=0,
-                            subagents=0, first=first, last=last))
-    s["msgs"] += msgs; s["fresh"] += fresh; s["cached"] += cached; s["out"] += out
-    s["subagents"] += len(parts) > 2
-    if first: s["first"] = min(s["first"] or first, first)
-    if last: s["last"] = max(s["last"] or last, last)
-
-sessions = list(agg.values())
-for s in sessions:
-    s["wh"] = s["fresh"] * R_IN + s["cached"] * R_CACHE + s["out"] * R_OUT
-
-# --days filters on the session's own last activity, read from the transcript rather than from
-# file mtime (mtime moves when a session is resumed and understates how far back history runs).
-if a.days:
-    cutoff = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - a.days * 86400))
-    sessions = [s for s in sessions if (s["last"] or "") >= cutoff]
+# ---- gather -------------------------------------------------------------------------------
+if a.merge:
+    sources, sessions = [], []
+    for fn in a.merge:
+        d = json.load(open(fn))
+        sources.append(d)
+        sessions += d["sessions_detail"]
+else:
+    sessions = scan(a.root or ["~/.claude/projects"], a.project)
+    if a.days:
+        cut = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - a.days * 86400))
+        sessions = [s for s in sessions if (s["last"] or "") >= cut]
+    sources = None
 
 if not sessions:
     raise SystemExit("no sessions matched")
 
-sessions.sort(key=lambda s: -s["wh"])
 tot = lambda k: sum(s[k] for s in sessions)
-F, C, O, WH = tot("fresh"), tot("cached"), tot("out"), tot("wh")
-kwh = WH / 1000
+F, C, O = tot("fresh"), tot("cached"), tot("out")
 stamps = [t for s in sessions for t in (s["first"], s["last"]) if t]
-span = ""
-if stamps:
-    d0, d1 = min(stamps)[:10], max(stamps)[:10]
-    days = (datetime.date.fromisoformat(d1) - datetime.date.fromisoformat(d0)).days
-    span = f" | {d0} .. {d1} ({days} days)"
 
-if a.json:
+if a.raw:
     import platform
     print(json.dumps({
-        "machine": platform.node(), "sessions": len(sessions), "messages": tot("msgs"),
+        "source": platform.node(), "roots": [os.path.expanduser(r) for r in
+                                             (a.root or ["~/.claude/projects"])],
+        "sessions": len(sessions), "messages": tot("msgs"),
         "first": min(stamps) if stamps else None, "last": max(stamps) if stamps else None,
         "tokens": {"fresh": F, "cached": C, "output": O},
-        "kwh": round(kwh, 3),
-        "co2_kg": {k: round(kwh * v / 1000, 3) for k, v in GRIDS.items()},
-        "water_l": {"on_site": round(kwh * WUE_ON, 1), "total": round(kwh * (WUE_ON + WUE_OFF), 1)},
-        "note": "one machine only; energy/CO2/water derived from Couch rates, 2-4x uncertainty",
+        "sessions_detail": sessions,
     }, indent=1))
     raise SystemExit
 
-print(f"{len(sessions)} sessions ({tot('subagents')} with subagent transcripts) | "
-      f"{tot('msgs'):,} assistant messages{span}")
+# ---- report -------------------------------------------------------------------------------
+(R_IN, R_CACHE, R_OUT), GRIDS = rates_and_grids()
+if a.grid not in GRIDS:
+    raise SystemExit(f"unknown grid {a.grid!r}; try --list-grids")
+for s in sessions:
+    s["wh"] = s["fresh"] * R_IN + s["cached"] * R_CACHE + s["out"] * R_OUT
+sessions.sort(key=lambda s: -s["wh"])
+WH = sum(s["wh"] for s in sessions)
+kwh = WH / 1000
+
+span = ""
+if stamps:
+    d0, d1 = min(stamps)[:10], max(stamps)[:10]
+    span = (f" | {d0} .. {d1} "
+            f"({(datetime.date.fromisoformat(d1) - datetime.date.fromisoformat(d0)).days} days)")
+print(f"{len(sessions)} sessions | {tot('msgs'):,} assistant messages{span}")
+if sources:
+    print("\n=== Sources merged ===")
+    for d in sources:
+        swh = sum(s["fresh"]*R_IN + s["cached"]*R_CACHE + s["out"]*R_OUT
+                  for s in d["sessions_detail"]) / 1000
+        print(f"  {d['source']:<28} {d['sessions']:3d} sessions  {swh:8.2f} kWh  "
+              f"({swh/kwh:5.1%})  {', '.join(d['roots'])}")
 
 print("\n=== Tokens (measured) ===")
 for lbl, v in (("fresh input (incl. cache writes)", F), ("cached reads", C), ("output", O)):
     print(f"  {lbl:<34} {v/1e6:10.1f} M  ({v/(F+C+O):5.1%})")
 print(f"  cache hit rate {C/(F+C):.1%} | output share of non-cached tokens {O/(F+O):.1%}")
 
-print(f"\n=== Energy (derived, Couch rates) ===")
+print("\n=== Energy (derived, Couch rates) ===")
 for lbl, v in (("fresh input", F*R_IN), ("cached reads", C*R_CACHE), ("output", O*R_OUT)):
     print(f"  {lbl:<34} {v/1000:8.2f} kWh  ({v/WH:5.1%} of energy)")
 print(f"  {'TOTAL':<34} {kwh:8.2f} kWh")
@@ -165,28 +197,30 @@ print(f"\n=== CO2 and water at {a.grid} ({g:.1f} gCO2/kWh) ===")
 print(f"  CO2            {co2:8.1f} kg   = {co2*1000/MILE_G:,.0f} miles / "
       f"{co2*1000/MILE_G*1.609:,.0f} km driving")
 print(f"  water on-site  {kwh*WUE_ON:8.1f} L")
-print(f"  water total    {kwh*(WUE_ON+WUE_OFF):8.1f} L    = {kwh*(WUE_ON+WUE_OFF)/0.5:,.0f} "
-      f"x 500 mL bottles")
+print(f"  water total    {kwh*(WUE_ON+WUE_OFF):8.1f} L    = "
+      f"{kwh*(WUE_ON+WUE_OFF)/0.5:,.0f} x 500 mL bottles")
 
-print(f"\n=== CO2 across every convention (kg / driving miles) ===")
+print("\n=== CO2 across every convention (kg / driving miles) ===")
 for k, v in sorted(GRIDS.items(), key=lambda kv: kv[1]):
     kg = kwh * v / 1000
-    mark = " <-" if k == a.grid else ""
-    print(f"  {k:<34} {v:6.1f} g/kWh {kg:8.1f} kg {kg*1000/MILE_G:7.0f} mi{mark}")
+    print(f"  {k:<34} {v:6.1f} g/kWh {kg:8.1f} kg {kg*1000/MILE_G:7.0f} mi"
+          f"{' <-' if k == a.grid else ''}")
 lo, hi = min(GRIDS.values()), max(GRIDS.values())
 print(f"  band: {kwh*lo/1000*1000/MILE_G:.0f}-{kwh*hi/1000*1000/MILE_G:.0f} miles "
       f"({hi/lo:.1f}x, purely from the accounting convention)")
 
 wh = sorted(s["wh"] for s in sessions)
 q = lambda p: wh[min(int(p * len(wh)), len(wh) - 1)]
-print(f"\n=== Per-session distribution (Wh) ===")
+print("\n=== Per-session distribution (Wh) ===")
 print(f"  median {q(0.5):.0f} | p90 {q(0.9):,.0f} | max {wh[-1]:,.0f} | mean {st.mean(wh):,.0f}"
       f"  (mean/median = {st.mean(wh)/q(0.5):.0f}x)")
 
-print(f"\n=== Heaviest sessions ===")
+print("\n=== Heaviest sessions ===")
 print(f"  {'Wh':>8} {'kg CO2':>7} {'msgs':>6}  project")
 for s in sessions[:8]:
     print(f"  {s['wh']:8.0f} {s['wh']/1000*g/1000:7.2f} {s['msgs']:6d}  {s['project'][:52]}")
 
 print("\nToken counts are measured; energy, CO2 and water are derived from third-party rates "
-      "with 2-4x method uncertainty.\nClaude Code only — Desktop and web usage are not counted.")
+      "with 2-4x method uncertainty.")
+print("Still uncounted: cloud sessions (server-side, never on local disk), Claude Desktop, "
+      "claude.ai, and any machine not merged in.")
