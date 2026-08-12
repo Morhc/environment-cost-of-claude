@@ -64,7 +64,8 @@ matter if you don't have it.
 ├── extract_cambium.py           # re-derives NREL Cambium long-run marginal rates
 ├── measure_usage.py             # your own Claude Code usage -> tokens, energy, CO2, water
 ├── collect_usage.sh             # merges usage across machines (local + ssh hosts)
-├── figures/*.png                # generated
+├── figures/*.png                # generated (fig_s2_usage_alltime.png needs the author's
+│                                #   own transcripts — `make` cannot rebuild it)
 ├── CLAUDE.md                    # project conventions
 └── HANDOFF.md                   # state, decisions, open threads
 ```

@@ -6,6 +6,9 @@ MAIN_FIGS = figures/fig1_claude_energy_vs_tokens.png \
             figures/fig4_datacenters.png \
             figures/fig5_training.png
 BRIEF_FIG = figures/fig_s1_session.png
+# figures/fig_s2_usage_alltime.png is NOT a make target: it is built from the author's own
+# Claude Code transcripts via `measure_usage.py --plot`, which no other reader can reproduce.
+# It is committed as a static asset.
 
 .PHONY: all report brief figures scenario clean
 

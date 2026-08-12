@@ -319,8 +319,9 @@ if a.plot and hourly:
     lo_name = min(GRIDS, key=GRIDS.get).replace("_", " ")
     hi_name = max(GRIDS, key=GRIDS.get).replace("_", " ")
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9.2, 6.4), sharex=True)
-    fig.subplots_adjust(left=0.085, right=0.975, top=0.855, bottom=0.09, hspace=0.28)
+    AQUA = "#1baf7a"
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(9.2, 8.8), sharex=True)
+    fig.subplots_adjust(left=0.085, right=0.955, top=0.895, bottom=0.07, hspace=0.30)
 
     # (a) daily energy. Band = the low end of the rate's stated 2-4x method uncertainty.
     ax1.fill_between(days, [v/2 for v in kwh], [v*2 for v in kwh], color=BLUE, alpha=0.13, lw=0)
@@ -348,13 +349,30 @@ if a.plot and hourly:
                      color=INK2 if val == g else MUTED, va="center")
     ax2.yaxis.set_major_locator(MaxNLocator(5))
 
+    # (c) cumulative water. The band is not an error bar -- it is the BOUNDARY choice, on-site
+    # cooling water versus water evaporated at the power plants too. That gap is the whole of the
+    # public water controversy, so it is drawn rather than argued.
+    ax3.fill_between(days, [c*WUE_ON for c in cum], [c*(WUE_ON+WUE_OFF) for c in cum],
+                     color=AQUA, alpha=0.15, lw=0)
+    ax3.plot(days, [c*(WUE_ON+WUE_OFF) for c in cum], color=AQUA, lw=2, solid_capstyle="round")
+    ax3.plot(days, [c*WUE_ON for c in cum], color=AQUA, lw=1.2, ls=(0, (3, 2)))
+    ax3.set_ylabel("cumulative litres", fontsize=8.5)
+    ax3.set_title("c. Cumulative water — solid line includes power-plant evaporation; "
+                  "dashed is on-site cooling only", loc="left", fontweight="bold", fontsize=9.5)
+    # Direct labels are mandatory relief here: aqua sits at 2.74:1 against the surface.
+    ax3.annotate(f"{cum[-1]*(WUE_ON+WUE_OFF):,.0f} L  total", (days[-1], cum[-1]*(WUE_ON+WUE_OFF)),
+                 textcoords="offset points", xytext=(6, 2), fontsize=7.5, color=INK2, va="center")
+    ax3.annotate(f"{cum[-1]*WUE_ON:,.0f} L  on-site", (days[-1], cum[-1]*WUE_ON),
+                 textcoords="offset points", xytext=(6, -2), fontsize=7.5, color=MUTED, va="center")
+    ax3.yaxis.set_major_locator(MaxNLocator(5))
+
     for spec in a.event:
         ds, _, lab = spec.partition("=")
         try:
             ed = datetime.date.fromisoformat(ds.strip())
         except ValueError:
             continue
-        for ax in (ax1, ax2):
+        for ax in (ax1, ax2, ax3):
             ax.axvline(ed, color=INK2, lw=1.1, ls=(0, (4, 3)), alpha=0.75, zorder=1)
         ax1.annotate(lab.strip() or ds.strip(), (ed, ax1.get_ylim()[1]),
                      textcoords="offset points", xytext=(5, -10), fontsize=8,
@@ -367,7 +385,7 @@ if a.plot and hourly:
                          (ed, ax1.get_ylim()[1]), textcoords="offset points", xytext=(5, -24),
                          fontsize=7.5, color=MUTED)
 
-    ax2.set_xlabel(f"date ({zlabel})", fontsize=8.5)
+    ax3.set_xlabel(f"date ({zlabel})", fontsize=8.5)
     fig.autofmt_xdate(rotation=0, ha="center")
     nsrc = len(sources or [1])
     fig.suptitle(f"Claude Code usage, {d0} to {d1} — {len(sessions)} sessions across "
