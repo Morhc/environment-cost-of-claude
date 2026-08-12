@@ -115,13 +115,21 @@ individually.
   because ERCOT/PJM_West induce build far cleaner than their current mix (0.34×, 0.40× of average)
   while NY induces build no cleaner than its existing hydro and nuclear (1.13×).
 - **The output share is measured, and the old assumption was 1.4× too high.** `measure_usage.py`
-  reads token counters from local Claude Code transcripts (counters only, never content). Over 56
-  sessions / 16,240 assistant messages for one heavy user: cache hit rate **98.3%**, output share
-  **19–24%** (against an assumed 0.5), cached reads **72% of session energy**, session distribution
-  median 89 Wh / p90 18.0 kWh / max 51.6 kWh (mean/median 48). The brief's headline moved from
-  1.31 kWh / 456 g / 4.4 L to **0.94 kWh / 326 g / 3.11 L**, and Section 5 is now the only measured
-  content in either document. Caveat recorded there: Claude Code's input is mostly tool results,
-  a different workload from the paper-reading scenario modelled.
+  reads token counters from local Claude Code transcripts (counters only, never content) and now
+  carries them through to CO₂ and water across all 15 grid conventions. Over 56 sessions /
+  24,956 assistant messages / 47 days for one heavy user: cache hit rate **98.1%**, main-thread
+  output share **19–24%** (against an assumed 0.5), cached reads **72% of energy**, distribution
+  median 89 Wh / p90 21.8 kWh / max 84.1 kWh (mean/median 62), total **306.9 kWh → 107 kg CO₂e →
+  267 driving miles** at the US average (85–595 miles across conventions). The brief's headline
+  moved from 1.31 kWh / 456 g / 4.4 L to **0.94 kWh / 326 g / 3.11 L**. Caveat recorded in
+  Section 5: Claude Code's input is mostly tool results, a different workload from the
+  paper-reading scenario modelled.
+- **Watch the nesting.** Subagent and workflow transcripts live at
+  `<project>/<session>/subagents/[workflows/<wf>/]agent-*.jsonl`. A first version of the tool
+  globbed only `*/*.jsonl` and so **undercounted energy by 22%**. Any per-user accounting that
+  ignores agentic side-contexts will understate by roughly that much. Also do not use file mtime
+  for the history span — it moves when a session is resumed and gave 29 days against a true 47;
+  read the in-file `timestamp` field instead.
 
 ## Open threads / what I'd do next
 - **No measured long-context energy curve exists for any Claude model** — the 200k–1M context window

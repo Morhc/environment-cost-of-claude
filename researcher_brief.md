@@ -180,26 +180,28 @@ We cannot sign the net error, and we are not going to pretend otherwise. What ca
 
 Every number above this section is derived from published rates applied to a hypothetical session. This section is different: it is the only *measured* content in either document, and it exists because two of the scenario's inputs turned out to be checkable after all.
 
-Claude Code writes a local transcript for every session, and each assistant message carries the token counters the serving stack returned: fresh input, cache writes, cache reads, and output. Those are exactly the four categories the Couch rate-set prices separately. Aggregating them over **56 sessions and 16,240 assistant messages** belonging to one heavy user — a working researcher, across scientific-computing, data-analysis, and writing projects — gives the following. Only the counters were read; no message content was examined.
+Claude Code writes a local transcript for every session, and each assistant message carries the token counters the serving stack returned: fresh input, cache writes, cache reads, and output. Those are exactly the four categories the Couch rate-set prices separately. Aggregating them over **56 sessions and 24,956 assistant messages** spanning 47 days (26 June to 12 August 2026) and belonging to one heavy user — a working researcher, across scientific-computing, data-analysis, and writing projects — gives the following. Only the counters were read; no message content was examined.
 
-Table: Measured token and energy mix, 56 sessions, one heavy user. Token counts are measured; the energy column applies the Couch rates and is therefore derived.
+Table: Measured token and energy mix, 56 sessions, one heavy user, subagent transcripts included. Token counts are measured; the energy column applies the Couch rates and is therefore derived.
 
 | | Tokens | Share of tokens | Energy at Couch rates | Share of energy |
 |:---|---:|---:|---:|---:|
-| Fresh input (incl. cache writes) | 78.1 M | 1.7% | 30.4 kWh | 12.8% |
-| Cached reads | 4,386.9 M | 97.8% | 171.1 kWh | **72.0%** |
-| Output | 18.5 M | 0.4% | 36.0 kWh | 15.2% |
-| **Total** | **4,483.5 M** | | **237.5 kWh** | |
+| Fresh input (incl. cache writes) | 109.8 M | 1.9% | 42.8 kWh | 14.0% |
+| Cached reads | 5,655.2 M | 97.7% | 220.6 kWh | **71.9%** |
+| Output | 22.3 M | 0.4% | 43.6 kWh | 14.2% |
+| **Total** | **5,787.3 M** | | **306.9 kWh** | |
 
-Three findings, in descending order of consequence for this brief.
+Four findings, in descending order of consequence for this brief.
 
-**Caching is not a lever, it is a constant.** The measured cache hit rate is **98.3%**. Section 2 treated caching as the single largest uncertainty and showed both an on and an off case; the off case is a bound that ordinary use does not approach. This is a property of the serving stack rather than of the workload, so it generalises better than anything else in this section.
+**Caching is not a lever, it is a constant.** The measured cache hit rate is **98.1%**. Section 2 treated caching as the single largest uncertainty and showed both an on and an off case; the off case is a bound that ordinary use does not approach. This is a property of the serving stack rather than of the workload, so it generalises better than anything else in this section.
 
-**The output share is 19–24%, not 50%.** This brief previously swept 20–80% and centred on 50% because nobody had measured it. Measured, output is 19.1% of non-cached tokens, or 23.7% if cache-writes are attributed to new content instead. Since output tokens carry ~5× the per-token energy of fresh input, that correction alone lowers every headline figure by a factor of **1.4** — and it is the reason the numbers in this revision are lower than in the previous one.
+**The output share is 19–24%, not 50%.** This brief previously swept 20–80% and centred on 50% because nobody had measured it. Measured on the main conversation threads, output is 19.0% of non-cached tokens, or 23.5% if cache-writes are attributed to new content instead. (Counting subagent contexts too pulls it to 16.9%, but those are separate contexts rather than part of one accumulating window, so the main-thread figure is the right analogue for this scenario.) Since output tokens carry ~5× the per-token energy of fresh input, that correction alone lowers every headline figure by a factor of **1.4** — and it is the reason the numbers in this revision are lower than in the previous one.
 
-**The distribution is violently heavy-tailed — mean/median = 48.** Median session 89 Wh; ninetieth percentile 18.0 kWh; largest single session 51.6 kWh. The main report argues from the literature that per-request energy distributions are heavy-tailed and that medians therefore mislead; this is that claim measured directly, at the session level, and the tail is heavier than the literature's per-request figures suggest. Note where the modelled scenario falls: the 0.94 kWh "heavy research session" of Section 3 is roughly **ten times the median real session but nearly twenty times below the ninetieth percentile.** The hypothetical this brief was built around is not an extreme case. It is a moderately busy one.
+**The distribution is violently heavy-tailed — mean/median = 62.** Median session 89 Wh; ninetieth percentile 21.8 kWh; largest single session 84.1 kWh. The main report argues from the literature that per-request energy distributions are heavy-tailed and that medians therefore mislead; this is that claim measured directly, at the session level, and the tail is heavier than the literature's per-request figures suggest. Note where the modelled scenario falls: the 0.94 kWh "heavy research session" of Section 3 is roughly **ten times the median real session but more than twenty times below the ninetieth percentile.** The hypothetical this brief was built around is not an extreme case. It is a moderately busy one.
 
-For scale, the 237.5 kWh total across these 56 sessions is **~83 kg CO~2~e** at the US-average grid factor — comparable to driving about 210 miles, accrued over months of daily professional use.
+**A fifth of the energy hides one directory deeper.** Sessions that spawn subagents write those to nested transcripts, and a first pass over only the top-level files missed them entirely — undercounting this machine's total by **22%**, from 307 kWh to 240. It is the report's boundary problem reproduced in miniature, on a dataset of one: the number you get depends on where you draw the edge, the naive edge is the one that flatters, and nothing about the smaller figure looks wrong until you check. Any per-user accounting that ignores agentic side-contexts will understate by roughly this much.
+
+For scale, the 306.9 kWh total across these 56 sessions is **~107 kg CO~2~e** at the US-average grid factor — comparable to driving about 267 miles, accrued over seven weeks of daily professional use. Across the fifteen accounting conventions in Section 4 that same electricity spans **85 to 595 miles**.
 
 **What this does and does not license.** These are Claude Code sessions, and their "input" is dominated by tool results — files read, commands run, searches returned — rather than by material a person pasted in. That is a genuinely different workload from the paper-reading researcher the scenario models, even though both are input-heavy, and it is why the output share is presented as a range rather than a point. It is also one user: n = 1, no claim of representativeness, and it excludes Desktop and web usage entirely. What it grounds well is the *mechanism* — an accumulating context, re-read under near-total caching, with cached reads dominating the energy — which is the structural claim the whole brief rests on, and which the measurement confirms.
 

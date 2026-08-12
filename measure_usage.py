@@ -1,6 +1,7 @@
 """Claude Code transcripts -> tokens -> energy -> CO2 and water.
 
-Reads ONLY the usage counters on assistant messages in ~/.claude/projects/*/*.jsonl.
+Reads ONLY the usage counters on assistant messages in ~/.claude/projects, including the
+nested subagent and workflow transcripts (22% of energy on this machine).
 No message content is opened, and nothing leaves the machine.
 
     python3 measure_usage.py                 # everything, US-average grid
@@ -14,6 +15,7 @@ The token counts are measured; everything downstream of them is not. Grid and wa
 come from data/sourced_data.json, so run this from the project root.
 """
 import argparse
+import datetime
 import glob
 import json
 import os
@@ -37,7 +39,7 @@ GRIDS["PJM_2022_shortrun"] = D["pjm_emissions_2022"]["flat_load_marginal_gco2_pe
 
 ap = argparse.ArgumentParser(description=__doc__,
                              formatter_class=argparse.RawDescriptionHelpFormatter)
-ap.add_argument("--days", type=float, help="only sessions modified in the last N days")
+ap.add_argument("--days", type=float, help="only sessions active in the last N days")
 ap.add_argument("--grid", default="eGRID_US_avg", help="convention for the headline (default US average)")
 ap.add_argument("--project", help="substring filter on the project directory name")
 ap.add_argument("--list-grids", action="store_true", help="print all conventions and exit")
@@ -50,20 +52,29 @@ if a.list_grids:
 if a.grid not in GRIDS:
     raise SystemExit(f"unknown grid {a.grid!r}; try --list-grids")
 
-cutoff = time.time() - a.days * 86400 if a.days else None
-sessions = []
-for path in glob.glob(os.path.expanduser("~/.claude/projects/*/*.jsonl")):
-    project = os.path.basename(os.path.dirname(path))
+# Transcripts nest: <project>/<session>.jsonl is the main thread, and
+# <project>/<session>/subagents/[workflows/<wf>/]agent-*.jsonl are the subagents it spawned.
+# Those subagent files carry real token spend and must be rolled into their parent session --
+# missing them undercounted this machine's total by 22%.
+ROOT = os.path.expanduser("~/.claude/projects")
+agg = {}
+for path in glob.glob(f"{ROOT}/**/*.jsonl", recursive=True):
+    parts = os.path.relpath(path, ROOT).split(os.sep)
+    if len(parts) < 2:
+        continue
+    project, session = parts[0], parts[1].removesuffix(".jsonl")
     if a.project and a.project not in project:
         continue
-    if cutoff and os.stat(path).st_mtime < cutoff:
-        continue
     fresh = cached = out = msgs = 0
+    first = last = None
     for line in open(path, errors="replace"):
         try:
             d = json.loads(line)
         except Exception:
             continue
+        if ts := d.get("timestamp"):
+            first = min(first or ts, ts)
+            last = max(last or ts, ts)
         if d.get("type") != "assistant":
             continue
         u = (d.get("message") or {}).get("usage")
@@ -74,10 +85,25 @@ for path in glob.glob(os.path.expanduser("~/.claude/projects/*/*.jsonl")):
         cached += u.get("cache_read_input_tokens") or 0
         out += u.get("output_tokens") or 0
         msgs += 1
-    if msgs:
-        sessions.append(dict(project=project, msgs=msgs, fresh=fresh, cached=cached, out=out,
-                             mtime=os.stat(path).st_mtime,
-                             wh=fresh * R_IN + cached * R_CACHE + out * R_OUT))
+    if not msgs:
+        continue
+    s = agg.setdefault((project, session),
+                       dict(project=project, msgs=0, fresh=0, cached=0, out=0,
+                            subagents=0, first=first, last=last))
+    s["msgs"] += msgs; s["fresh"] += fresh; s["cached"] += cached; s["out"] += out
+    s["subagents"] += len(parts) > 2
+    if first: s["first"] = min(s["first"] or first, first)
+    if last: s["last"] = max(s["last"] or last, last)
+
+sessions = list(agg.values())
+for s in sessions:
+    s["wh"] = s["fresh"] * R_IN + s["cached"] * R_CACHE + s["out"] * R_OUT
+
+# --days filters on the session's own last activity, read from the transcript rather than from
+# file mtime (mtime moves when a session is resumed and understates how far back history runs).
+if a.days:
+    cutoff = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - a.days * 86400))
+    sessions = [s for s in sessions if (s["last"] or "") >= cutoff]
 
 if not sessions:
     raise SystemExit("no sessions matched")
@@ -86,10 +112,15 @@ sessions.sort(key=lambda s: -s["wh"])
 tot = lambda k: sum(s[k] for s in sessions)
 F, C, O, WH = tot("fresh"), tot("cached"), tot("out"), tot("wh")
 kwh = WH / 1000
-span = (max(s["mtime"] for s in sessions) - min(s["mtime"] for s in sessions)) / 86400
+stamps = [t for s in sessions for t in (s["first"], s["last"]) if t]
+span = ""
+if stamps:
+    d0, d1 = min(stamps)[:10], max(stamps)[:10]
+    days = (datetime.date.fromisoformat(d1) - datetime.date.fromisoformat(d0)).days
+    span = f" | {d0} .. {d1} ({days} days)"
 
-print(f"{len(sessions)} sessions | {tot('msgs'):,} assistant messages | "
-      f"{span:.0f} days of history")
+print(f"{len(sessions)} sessions ({tot('subagents')} with subagent transcripts) | "
+      f"{tot('msgs'):,} assistant messages{span}")
 
 print("\n=== Tokens (measured) ===")
 for lbl, v in (("fresh input (incl. cache writes)", F), ("cached reads", C), ("output", O)):
