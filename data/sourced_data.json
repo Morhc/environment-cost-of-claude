@@ -1,0 +1,149 @@
+{
+  "_note": "All data points are third-party published estimates or disclosures. No fabricated values. Each entry carries its source. Compiled 2026-08-11.",
+  "jegham_v6": {
+    "source": "Jegham, Abdelatti, Elmoubarki, Hendawi, 'How Hungry is AI?', arXiv:2505.09598v6 (2025-11-24)",
+    "url": "https://arxiv.org/abs/2505.09598",
+    "method": "Black-box API latency proxy; assumed DGX H100/H200 nodes, batch 8; Anthropic/AWS multipliers PUE 1.14, WUE 0.18 on-site + 3.142 off-site L/kWh, CIF 0.385 kgCO2e/kWh",
+    "prompt_categories": {
+      "short": {"input_tokens": 100, "output_tokens": 300},
+      "medium": {"input_tokens": 1000, "output_tokens": 1000},
+      "long": {"input_tokens": 10000, "output_tokens": 1500}
+    },
+    "energy_wh": {
+      "claude_3_7_sonnet": {"short": [0.836, 0.102], "medium": [2.781, 0.277], "long": [5.518, 0.751]},
+      "claude_3_7_sonnet_et": {"short": [3.49, 0.304], "medium": [5.683, 0.508], "long": [17.045, 4.4]},
+      "gpt_4o": {"short": 0.421, "medium": 1.214, "long": [1.788, 0.363]},
+      "gpt_4_1_nano": {"long": [0.454, 0.208]},
+      "o3": {"short": 7.026, "medium": 21.414, "long": [39.223, 20.317]},
+      "deepseek_r1": {"short": 23.815, "medium": 29.0, "long": [33.634, 3.798]}
+    }
+  },
+  "couch_2026": {
+    "source": "Simon P. Couch, 'Electricity use of AI coding agents' (2026-01-20)",
+    "url": "https://simonpcouch.com/blog/2026-01-20-cc-impact/",
+    "method": "Back-calculation anchored on Epoch AI GPT-4o estimate, scaled by Anthropic API price ratios; real Claude Code session logs (8,825 API calls)",
+    "models": "Claude Opus 4.5 / Sonnet 4.5 via Claude Code",
+    "wh_per_million_input_tokens": 390,
+    "wh_per_million_output_tokens": 1950,
+    "wh_per_million_cached_read_tokens": 39,
+    "median_session": {"input_tokens": 500000, "output_tokens": 90000, "wh": 41},
+    "heavy_workday_wh": 1300
+  },
+  "digital_applied_2026": {
+    "source": "Digital Applied, 'AI Model Sustainability Report 2026' (2026-04-24)",
+    "url": "https://www.digitalapplied.com/blog/ai-model-sustainability-energy-report-2026",
+    "method": "Blog synthesis: public architecture data + ML.Energy per-FLOP measurements + assumed PUE/grid mix; self-declared error 2-3x either direction",
+    "credibility": "medium-low",
+    "claude_opus_4_7": {"chat_wh": 0.78, "chat_tokens_approx": 800, "long_context_wh": 14.1, "long_context_tokens": 800000},
+    "comparators": {"gpt_5_5_chat_wh": 0.84, "gemini_3_chat_wh": 0.61, "gemini_3_deep_think_wh": 6.2}
+  },
+  "google_2025": {
+    "source": "Elsworth et al. (Google), 'Measuring the environmental impact of delivering AI at Google scale', arXiv:2508.15734 (2025-08-21)",
+    "url": "https://arxiv.org/abs/2508.15734",
+    "method": "Measured production fleet, May 2025; boundary: active TPU + host CPU/DRAM + idle provisioned machines + PUE 1.09; market-based carbon; on-site water only",
+    "median_text_prompt": {"wh": 0.24, "gco2e": 0.03, "water_ml": 0.26},
+    "narrow_boundary_wh": 0.10,
+    "yoy_reduction": {"energy_x": 33, "carbon_x": 44}
+  },
+  "openai_2025": {
+    "source": "Sam Altman, 'The Gentle Singularity' blog (2025-06-10)",
+    "method": "No methodology published",
+    "avg_query": {"wh": 0.34, "water_ml": 0.32}
+  },
+  "epoch_2025": {
+    "source": "Epoch AI (Josh You), 'How much energy does ChatGPT use?' (2025-02-07)",
+    "url": "https://epoch.ai/gradient-updates/how-much-energy-does-chatgpt-use",
+    "method": "First-principles: ~100B active params MoE, H100 ~1500W incl. server overhead, 10% FLOP utilization, 70% peak power",
+    "typical_query_wh": 0.3,
+    "typical_output_tokens": 500,
+    "context_scaling_modeled": [{"input_tokens": 10000, "wh": 2.5}, {"input_tokens": 100000, "wh": 40}]
+  },
+  "oviedo_2026": {
+    "source": "Oviedo et al. (Microsoft), 'Energy Use of AI Inference', Joule 2026; arXiv:2509.20241",
+    "url": "https://arxiv.org/abs/2509.20241",
+    "method": "Production-grounded simulation, >200B-param frontier serving on H100 fleet, realistic utilization + PUE",
+    "median_query_wh": [0.31, 0.16, 0.60],
+    "long_query_wh": [3.91, 2.15, 7.05],
+    "long_query_token_multiple": 15
+  },
+  "mistral_2025": {
+    "source": "Mistral AI LCA with Carbone 4 / ADEME, peer-reviewed (2025-07-22)",
+    "url": "https://mistral.ai/news/our-contribution-to-a-global-environmental-standard-for-ai",
+    "per_400_token_response": {"gco2e": 1.14, "water_ml": 45},
+    "training_plus_18mo": {"ktco2e": 20.4, "water_m3": 281000}
+  },
+  "ml_energy": {
+    "source": "Chung et al., ML.ENERGY Benchmark (NeurIPS 2025, arXiv:2505.06371); longitudinal blog 2025-12; Leaderboard v3.0 paper arXiv:2601.22076 (2026-01)",
+    "llama31_8b_j_per_token": {"2024": 0.20, "2025": 0.12},
+    "qwen3_32b": {"chat": {"j_per_response": 95, "mean_output_tokens": 717}, "reasoning": {"j_per_response": 2192, "mean_output_tokens": 6988}},
+    "tdp_overestimate_factor": 4.1,
+    "moe_vs_dense_32b_energy_ratio": 3.56,
+    "batch_energy_reduction": "3-5x"
+  },
+  "samsi_2023": {
+    "source": "Samsi et al., 'From Words to Watts', IEEE HPEC 2023, arXiv:2310.03003",
+    "llama_65b_j_per_output_token": [3, 4],
+    "note": "2023 stack (V100/A100, no continuous batching); upper bound, obsolete"
+  },
+  "training_disclosed": {
+    "bloom": {"energy_mwh": 433.196, "tco2e_dynamic": 24.69, "tco2e_total": 50.5, "source": "Luccioni et al., JMLR 24 (2023), arXiv:2211.02001; measured", "grid_gco2_per_kwh": 57, "gpu_hours": 1082990},
+    "gpt3": {"energy_mwh": 1287, "tco2e": 552, "source": "Patterson et al. 2021, arXiv:2104.10350; estimated", "hardware": "10,000 V100, Azure"},
+    "llama31_405b": {"gpu_hours": 30840000, "tco2e_location": 8930, "energy_gwh_derived_tdp": 21.6, "source": "Meta Llama 3.1 model card (disclosed GPU-hours & tCO2e; energy derived at 700W TDP, no PUE)"},
+    "llama31_family": {"gpu_hours": 39300000, "tco2e_location": 11390},
+    "claude_any": {"disclosed": null, "external_estimate": {"value_tco2e": 5000, "model": "single Claude 4 training run", "source": "SINK Project scorecard (external estimate, methodology not public)", "url": "https://www.sinkproject.com/company/anthropic", "credibility": "low"}}
+  },
+  "epoch_training_flop": {
+    "source": "Epoch AI, 'Over 30 AI models trained at GPT-4 scale' (2025-06)",
+    "url": "https://epoch.ai/data-insights/models-over-1e25-flop",
+    "estimates_flop": {"gpt4": 2.1e25, "claude_3_opus": 1.6e25, "claude_35_sonnet": 2.7e25, "claude_37_sonnet": 3.4e25}
+  },
+  "datacenters": {
+    "new_carlisle_in": {"partner": "AWS Project Rainier", "grid": "PJM (Indiana Michigan Power / AEP)", "egrid_subregion": "RFCW", "gco2_per_kwh": 413, "mw_observed_2026_03": 910, "mw_planned": 2250, "cooling": "predominantly air-cooled (chiller-free), PUE 1.15 claimed; supplemental water Apr-Sep; Phase 1 discharge permit 1.58 MGD max", "chips": "~1M Trainium2 target", "sources": ["https://epoch.ai/data/ai-data-centers/directory/anthropic-amazon-new-carlisle", "https://measuredai.substack.com/p/aws-new-carlisle-data-center-campus"]},
+    "lake_mariner_ny": {"partner": "Fluidstack/TeraWulf (probable; not confirmed by Anthropic)", "grid": "NYISO upstate", "egrid_subregion": "NYUP", "gco2_per_kwh": 110, "mw_leased": 520, "mw_site_ultimate": 750, "cooling": "liquid cooling (Motivair CDUs, rear-door HX)", "sources": ["https://www.datacenterdynamics.com/en/news/anthropic-plans-50bn-us-data-center-spend-starting-with-fluidstack-sites-in-texas-and-new-york/"]},
+    "texas_sites": {"partner": "Fluidstack/Cipher Barber Lake + Abernathy (probable; not confirmed by Anthropic)", "grid": "ERCOT", "egrid_subregion": "ERCT", "gco2_per_kwh": 333, "mw_leased": 375, "sources": ["https://www.datacenterdynamics.com/en/news/fluidstack-signs-additional-39mw-lease-with-cipher-mining-in-texas-backed-by-google/"]},
+    "hawesville_ky": {"partner": "TeraWulf (direct 20-yr lease, $19B)", "grid": "MISO via Big Rivers Electric + Kenergy", "egrid_subregion": "uncertain", "gco2_per_kwh": null, "mw_it": 401, "online": "H2 2027", "sources": ["https://www.datacenterdynamics.com/en/news/anthropic-signs-19bn-20-year-lease-for-kentucky-data-center-with-terawulf/"]},
+    "memphis_tn": {"partner": "SpaceX/xAI Colossus 1 (all compute)", "grid": "on-site natural gas turbines (reported)", "gco2_per_kwh": null, "mw": 300, "gpus": 220000, "sources": ["https://www.anthropic.com/news/higher-limits-spacex"]},
+    "google_tpu": {"partner": "Google Cloud (up to 1M TPUs)", "grid": "undisclosed locations", "gco2_per_kwh": null, "mw": 1000, "note": ">1 GW online in 2026 per announcement", "sources": ["https://www.googlecloudpresscorner.com/2025-10-23-Anthropic-to-Expand-Use-of-Google-Cloud-TPUs-and-Services"]}
+  },
+  "egrid_2023": {
+    "source": "EPA eGRID 2023 (Rev 2, 2025-06-12), summary data",
+    "url": "https://www.epa.gov/egrid/summary-data",
+    "gco2_per_kwh": {"RFCW": 413, "ERCT": 333, "NYUP": 110, "US_avg": 348}
+  },
+  "avert_2023": {
+    "source": "EPA, 'Emission Rates from AVERT' (April 2024 release), data year 2023; sheet '2023', Regional Emission Rates, column 'Uniform EE'",
+    "url": "https://www.epa.gov/system/files/documents/2024-04/avert_emission_rates_04-11-24_0.xlsx",
+    "method": "Short-run marginal (avoided) CO2 rates from AVERT's hourly dispatch model, assuming 0.5% displacement of existing regional demand. 'Uniform EE' = flat all-hours load profile, the closest published match to a 24/7 data-center load. T&D-loss adjusted (retail-level) per the workbook README.",
+    "units": "lb CO2/MWh as published; gCO2/kWh derived at 453.59237 g/lb",
+    "extracted_by": "extract_avert.py",
+    "lb_co2_per_mwh": {"Mid-Atlantic": 1363.2, "Texas": 1293.7, "New York": 1048.0, "Midwest": 1711.8, "Tennessee": 1337.7, "US_national": 1429.5},
+    "gco2_per_kwh": {"Mid-Atlantic": 618.3, "Texas": 586.8, "New York": 475.4, "Midwest": 776.4, "Tennessee": 606.8, "US_national": 648.4},
+    "site_mapping": {"Mid-Atlantic": "New Carlisle, IN (Project Rainier)", "Texas": "Barber Lake / Abernathy, TX", "New York": "Lake Mariner, Barker, NY", "Midwest": "Hawesville, KY", "Tennessee": "Memphis, TN (grid-served portion)"},
+    "marginal_over_egrid_average": {"Mid-Atlantic/RFCW": 1.5, "Texas/ERCT": 1.76, "New York/NYUP": 4.32, "US_national": 1.86},
+    "caveats": [
+      "AVERT regions are aggregations of balancing authorities and are NOT coextensive with eGRID subregions; the ratios above cross geographic boundaries.",
+      "Indiana is split 21% Mid-Atlantic / 79% Midwest (EPA state apportionment, 2018 sales). New Carlisle is served by Indiana Michigan Power, a PJM member, placing it in the Mid-Atlantic region.",
+      "AVERT's New York region spans all of NYISO including gas-heavy downstate, while eGRID NYUP is upstate only; the 4.32x ratio is inflated by this mismatch and is not purely a marginal-vs-average effect.",
+      "EPA states AVERT 'is a marginal emissions assessment tool and not a tool for emissions accounting' and cautions against its use in corporate GHG reporting.",
+      "T&D adjustment makes these rates modestly high for a transmission-connected campus.",
+      "AVERT reports CO2, not CO2e."
+    ]
+  },
+  "pjm_emissions_2022": {
+    "source": "PJM Interconnection, '2018-2022 CO2, SO2 and NOX Emission Rates' (April 27, 2023), Table 2",
+    "url": "https://www.pjm.com/-/media/DotCom/library/reports-notices/special-reports/2023/2022-emissions-report.ashx",
+    "method": "Marginal rate = mathematical average of the emission rates of the LMP-setting unit(s) in each 5-minute dispatch interval, averaged monthly. System average = generation-weighted across all PJM generation.",
+    "verified": "Values read directly from the report PDF, 2026-08-11",
+    "year_2022_lb_co2_per_mwh": {"marginal_on_peak": 1041, "marginal_off_peak": 976, "system_average": 811},
+    "flat_load_marginal_lb_per_mwh_derived": 1007,
+    "flat_load_marginal_gco2_per_kwh_derived": 456.7,
+    "derivation": "On-peak = non-holiday weekdays 07:00-23:00 = 80 of 168 h/week (0.4762); flat 24/7 load weight = 0.4762*1041 + 0.5238*976 = 1007 lb/MWh; ratio to 811 system average = 1.24x",
+    "series_status": "Discontinued after this edition. PJM's Reports & Notices library lists no emissions report for data years 2023-2025 as of 2026-08-11; PJM now publishes marginal emission rates via Data Miner and an interactive Emissions page instead."
+  },
+  "aggregate": {
+    "iea": {"source": "IEA Energy and AI (2025-04) + Key Questions update (2026)", "datacenters_twh_2024": 415, "datacenters_twh_2025": 485, "datacenters_twh_2030_proj": 945, "ai_specific_twh_2025": 155},
+    "devries_gao_2025": {"ai_twh_2025_upper": 82, "source": "de Vries-Gao, Joule (2025-05)"},
+    "lbnl_2024": {"us_dc_share_2024": 0.044, "us_dc_share_2028_proj": [0.067, 0.12], "ai_twh_2028_proj": [165, 326], "source": "LBNL via MIT Tech Review (2025-05-20)"},
+    "anthropic_projected_gw": {"2027": 2, "2028": 5, "source": "Anthropic, 'Build AI in America' (2025-07-21)"}
+  }
+}

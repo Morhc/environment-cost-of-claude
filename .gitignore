@@ -1,0 +1,10 @@
+# Build products — regenerate with `make`
+*.pdf
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# macOS
+.DS_Store

@@ -1,0 +1,66 @@
+# Project conventions — Claude environmental impact analysis
+
+Read this before touching anything. These rules were set by the user and are load-bearing.
+
+## The strictness rule (non-negotiable)
+
+**Only published, sourced values appear in the main report's tables and figures.** No fillers, no
+placeholder numbers, no plausible-sounding extrapolations. Where no published estimate exists —
+notably the Claude Fable 5 / Claude 5 generation — the gap is *displayed as a finding*
+("No published data"), not papered over.
+
+The companion brief (`researcher_brief.md`) is the one deliberate exception: it exists to do
+scenario arithmetic the reader can't avoid. Everything there is explicitly labeled **derived**,
+every input rate is sourced, and Section 4 audits the direction of every excluded term.
+
+## The honesty rule
+
+When presenting an estimate, state which direction it is likely to be wrong in. If the error can't
+be signed, say so explicitly rather than implying the printed ± is a total uncertainty. The user's
+instruction was literally "We should do things honestly" — applied, this meant:
+
+- Section 0 of the brief says the ± is a *parameter sweep only*, not total uncertainty.
+- Section 4 presents marginal-vs-average grid accounting as **two-sided** (short-run marginal is
+  1.2–1.7× higher than average; long-run marginal can be ~0.8× *lower*), not as a one-sided
+  "we're conservative" claim.
+- Every excluded term carries an explicit ↑/↓ direction.
+
+## Source hierarchy
+
+1. Primary corporate disclosures and regulatory filings
+2. Peer-reviewed measurements
+3. Credible preprints with published methodology (Epoch AI, ML.ENERGY, Microsoft/Oviedo)
+4. Trade press for verifiable facts only (capacity, leases, grid interconnections)
+5. Transparent independent estimates (Couch)
+6. Blog syntheses — used only when flagged as such (Digital Applied is marked medium-low, drawn
+   with hollow markers in Figure 4)
+
+Untraceable figures that circulate widely (e.g. "Claude 3 Opus = 4.05 Wh/query") are documented in
+the claims audit and **excluded from all figures**. See the master table in Appendix A.
+
+## Figure conventions
+
+Figures use the `dataviz` skill's reference palette (light mode). Key hexes are defined at the top
+of `make_figures.py`: surface `#fcfcfb`, ink `#0b0b0b`/`#52514e`, muted `#898781`, grid `#e1e0d9`,
+series blue `#2a78d6`, orange `#eb6834`, aqua `#1baf7a`, yellow `#eda100`. Keep them.
+
+- Log–log where the data spans orders of magnitude (it usually does).
+- Lower-credibility sources get hollow markers or hatched bars, always with a caption note.
+- Rotated inline labels beat legends where a line's identity is obvious.
+- Panels using different methodologies must be captioned as not directly comparable.
+
+## Writing conventions
+
+Prose over bullets in the reports themselves. Tables for anything comparative. Every number in the
+running text traceable to `data/sourced_data.json` or an inline citation. Avoid the word
+"comprehensive" about our own work — the whole point is that comprehensiveness is impossible here.
+
+## Gotchas that cost time
+
+- Pandoc caption-ID syntax (`{#tbl:foo}`) renders **literally** in PDF output with this template.
+  Don't use it; strip it if it reappears.
+- `lmodern.sty` is missing on a bare Ubuntu texlive install → `apt-get install -y lmodern`.
+- Python scripts use relative paths (`data/`, `figures/`) — **run them from the project root**.
+- Matplotlib must use the `Agg` backend (already set in both scripts).
+- Figure cross-references in the text are manual. If you add or reorder a figure, grep for
+  "Figure N" and fix by hand.
