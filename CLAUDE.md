@@ -23,6 +23,27 @@ There are exactly two deliberate exceptions, both quarantined and both labeled:
 If a third exception is ever proposed, it needs the same treatment: quarantined location, labeled
 values, signed error directions, and a script that regenerates it.
 
+**Measured data is not an exception** — it outranks everything. Section 5 of the brief reports token
+counters read from local Claude Code transcripts (`measure_usage.py`). Where a measurement exists it
+replaces the corresponding assumption outright, and the assumption's former value is stated so the
+correction is visible. Read only the usage counters, never message content.
+
+## Grid accounting
+
+Three conventions, three different questions, all three printed:
+
+- **eGRID annual average** — attributional; the right basis for an inventory and this project's headline.
+- **AVERT short-run marginal** — what the grid burns tonight because of this load. Note EPA's own
+  caution that AVERT is "not a tool for emissions accounting", and its 0.5% displacement assumption,
+  which a gigawatt-scale campus violates.
+- **NREL Cambium long-run marginal** — what gets *built* because the load persists. This is the
+  horizon-appropriate one for multi-decade campuses (AVERT explicitly disclaims >5 years), and it is
+  what the siting argument must rest on.
+
+Never present a marginal number as if it were attributional, or vice versa. Where two authoritative
+sources for the same quantity disagree — AVERT's Mid-Atlantic 618 vs PJM's own 457 gCO2/kWh — print
+both as an error bar rather than picking a winner. That is a standing instruction from the user.
+
 ## The honesty rule
 
 When presenting an estimate, state which direction it is likely to be wrong in. If the error can't
@@ -30,9 +51,9 @@ be signed, say so explicitly rather than implying the printed ± is a total unce
 instruction was literally "We should do things honestly" — applied, this meant:
 
 - Section 0 of the brief says the ± is a *parameter sweep only*, not total uncertainty.
-- Section 4 presents marginal-vs-average grid accounting as **two-sided** (short-run marginal is
-  1.2–1.7× higher than average; long-run marginal can be ~0.8× *lower*), not as a one-sided
-  "we're conservative" claim.
+- Section 4 presents marginal-vs-average grid accounting as **two-sided** (short-run marginal runs
+  1.24–1.86× *above* the average; long-run marginal runs 0.34–0.40× *below* it at the Indiana and
+  Texas sites, and 1.13× above at the New York one), not as a one-sided "we're conservative" claim.
 - Every excluded term carries an explicit ↑/↓ direction.
 
 ## Source hierarchy

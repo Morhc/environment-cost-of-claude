@@ -61,6 +61,8 @@ matter if you don't have it.
 ├── scenario_calc.py             # session arithmetic; prints all permutations
 ├── extract_avert.py             # re-derives AVERT marginal rates from the EPA workbook
 ├── training_bounds.py           # derived training-energy bounds behind Appendix C
+├── extract_cambium.py           # re-derives NREL Cambium long-run marginal rates
+├── measure_usage.py             # measures token mix from local Claude Code transcripts
 ├── figures/*.png                # generated
 ├── CLAUDE.md                    # project conventions
 └── HANDOFF.md                   # state, decisions, open threads

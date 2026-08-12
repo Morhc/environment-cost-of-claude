@@ -105,7 +105,7 @@ print(f"  GPT-3 (Patterson estimate):   {gpt3:6.2f} GWh")
 print(f"  Llama 3.1 405B (disclosed):   {llama_wh/1e9:6.2f} GWh (chip-only, no PUE)")
 print(f"  Claude 3 Opus (derived here): {opus_ce:6.2f} GWh")
 # Denominators that make a GWh legible.
-session_wh = 1310                                     # central researcher session, scenario_calc.py
+session_wh = 936                                      # central researcher session, scenario_calc.py
 gemini_wh = D["google_2025"]["median_text_prompt"]["wh"]
 rainier_mw = D["datacenters"]["new_carlisle_in"]["mw_observed_2026_03"]
 print(f"\n  In other units, the Claude 3 Opus central figure ({opus_ce:.1f} GWh) is:")

@@ -30,11 +30,12 @@ def session_da(N):
     step = W / N
     return sum(0.78 + (14.1 - 0.78) * (k * step) / 800_000 for k in range(1, N + 1))
 
-# ranges across N=20..30, f_out=0.2..0.8
-couch_on = [session(N, f, True) for N in (20, 25, 30) for f in (0.2, 0.5, 0.8)]
-couch_off = [session(N, f, False) for N in (20, 25, 30) for f in (0.2, 0.5, 0.8)]
-E_ON = (min(couch_on), session(25, 0.5, True), max(couch_on))
-E_OFF = (min(couch_off), session(25, 0.5, False), max(couch_off))
+# f_out is measured, not assumed: 0.19-0.24 from 56 real sessions (see scenario_calc.py).
+F_CENTRAL, F_RANGE = 0.20, (0.19, 0.24)
+couch_on = [session(N, f, True) for N in (20, 25, 30) for f in F_RANGE]
+couch_off = [session(N, f, False) for N in (20, 25, 30) for f in F_RANGE]
+E_ON = (min(couch_on), session(25, F_CENTRAL, True), max(couch_on))
+E_OFF = (min(couch_off), session(25, F_CENTRAL, False), max(couch_off))
 E_DA = (session_da(20) / 3, session_da(25), session_da(30) * 3)
 
 fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(8.6, 7.6),
@@ -43,7 +44,7 @@ fig.subplots_adjust(left=0.36, right=0.97, top=0.90, bottom=0.07, hspace=0.75)
 
 # (a) energy per session
 rows = [("Opus 4.7 blog rates, interpolated\n(Digital Applied, ±3×)", E_DA, AQUA),
-        ("Opus 4.5 per-token rates, caching ON\n(Couch; f_out 0.2–0.8, N 20–30)", E_ON, BLUE),
+        ("Opus 4.5 per-token rates, caching ON\n(Couch; f_out 0.19–0.24 measured, N 20–30)", E_ON, BLUE),
         ("Opus 4.5 rates, caching OFF\n(full context re-read each turn)", E_OFF, ORANGE)]
 for i, (lbl, (lo, c, hi), col) in enumerate(rows):
     y = len(rows) - 1 - i
@@ -52,7 +53,7 @@ for i, (lbl, (lo, c, hi), col) in enumerate(rows):
     ax1.text(c, y + 0.3, f"{c:,.0f}", ha="center", fontsize=7.5, color=INK2)
 ax1.set_yticks(range(len(rows)))
 ax1.set_yticklabels([r[0] for r in rows][::-1], fontsize=7.6)
-ax1.set_xscale("log"); ax1.set_xlim(40, 10000)
+ax1.set_xscale("log"); ax1.set_xlim(40, 7000)
 ax1.set_ylim(-0.6, len(rows) - 0.4 + 0.3)
 ax1.grid(axis="y", alpha=0)
 ax1.set_xlabel("Energy per session (Wh, log scale)", fontsize=8)
@@ -70,8 +71,8 @@ for i, (lbl, ci) in enumerate(grids):
     ax2.text(hi + 18, y, f"{c:.0f} g", va="center", fontsize=7.5, color=INK2)
 ax2.set_yticks(range(len(grids)))
 ax2.set_yticklabels([g[0] for g in grids][::-1], fontsize=7.6)
-ax2.set_xlim(0, 850); ax2.grid(axis="y", alpha=0)
-ax2.set_xlabel("g CO$_2$e per session — central rate-set, caching on (uncached ≈ 3.6× higher)", fontsize=8)
+ax2.set_xlim(0, 650); ax2.grid(axis="y", alpha=0)
+ax2.set_xlabel("g CO$_2$e per session — central rate-set, caching on (uncached ≈ 4.2× higher)", fontsize=8)
 ax2.set_title("b. Carbon depends on which grid serves the request (undisclosed)", loc="left",
               fontweight="bold", fontsize=9.5)
 
@@ -86,7 +87,7 @@ for i, (lbl, wue, col) in enumerate(wrows):
     ax3.text(hi + 0.12, y, f"{c:.2f} L", va="center", fontsize=7.5, color=INK2)
 ax3.set_yticks(range(len(wrows)))
 ax3.set_yticklabels([w[0] for w in wrows][::-1], fontsize=7.6)
-ax3.set_xlim(0, 6.5); ax3.grid(axis="y", alpha=0)
+ax3.set_xlim(0, 4.6); ax3.grid(axis="y", alpha=0)
 ax3.set_xlabel("Litres per session — central rate-set, caching on (AWS multipliers, Jegham v6)", fontsize=8)
 ax3.set_title("c. Water: the off-site (power-plant) share dominates", loc="left",
               fontweight="bold", fontsize=9.5)

@@ -8,3 +8,5 @@ __pycache__/
 
 # macOS
 .DS_Store
+*.xlsx
+!data/avert_emission_rates_2023.xlsx

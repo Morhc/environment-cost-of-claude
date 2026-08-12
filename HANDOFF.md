@@ -7,12 +7,15 @@ This project was built in a Claude cloud session and moved to local. Everything 
 
 | File | What it is |
 |:---|:---|
-| `report.md` → `claude-environmental-impact-report.pdf` | Main report, 23 pp, 5 figures, 5 tables, ~80 sources |
-| `researcher_brief.md` → `opus-researcher-footprint-brief.pdf` | Companion brief, 11 pp, 1 figure, for researchers estimating their own use |
+| `report.md` → `claude-environmental-impact-report.pdf` | Main report, 28 pp, 5 figures, 8 tables, ~85 sources; Appendix C = training bounds |
+| `researcher_brief.md` → `opus-researcher-footprint-brief.pdf` | Companion brief, 15 pp, 1 figure; Section 5 = measured usage |
 | `data/sourced_data.json` | Every plotted value with its source, method, and credibility flag |
 | `make_figures.py` | Figures 1–5 of the main report |
 | `make_scenario_figure.py` | The brief's three-panel session figure |
-| `scenario_calc.py` | The session arithmetic — prints all scenario permutations |
+| `scenario_calc.py` | The session arithmetic — single source for every number in the brief |
+| `extract_avert.py` / `extract_cambium.py` | Short-run and long-run marginal grid factors from EPA / NREL |
+| `training_bounds.py` | Derived training-energy bounds behind Appendix C |
+| `measure_usage.py` | Measured token mix from local Claude Code transcripts (counters only) |
 | `CLAUDE.md` | Project conventions (strictness rule, honesty rule, source hierarchy, palette) |
 
 ## The central finding
@@ -39,13 +42,22 @@ individually.
   (~0.3 Wh typical → ~2.5 Wh at 10k → ~40 Wh at 100k input, Epoch modeled).
 - **Grids:** eGRID 2023 — RFCW (Indiana PJM) 413, ERCT 333, NYUP 110, US avg 348 gCO₂/kWh
   (all four verified against EPA's summary data, Aug 2026; US avg = 767.209 lb/MWh).
-  Short-run marginal runs 1.24–1.86× higher; long-run marginal can run ~0.8× lower.
-- **AVERT 2023 marginal ("uniform EE", flat 24/7 profile), region-matched to the sites:**
-  Mid-Atlantic (New Carlisle) 618, Texas 587, New York 475, US national 648 gCO₂/kWh.
-  **The fleet's ~3.8× average-accounting spread collapses to ~1.3× at the margin** — the most
-  consequential number added since the first draft, and it weakens the clean-grid siting story.
-- **The researcher session** (25 prompts, 800k window, caching on): 1.31 kWh → 456 g CO₂e
-  (US avg) → 4.4 L water total / 0.24 L on-site. Full band across grid conventions: 375–834 g.
+  Short-run marginal runs 1.24–1.86× higher; long-run marginal runs 0.34–1.13× of the average
+  depending on region.
+- **Three region-matched grid conventions** (gCO₂/kWh), the spine of the siting argument:
+
+  | Site | eGRID avg | AVERT short-run | Cambium long-run (20 yr) |
+  |:---|---:|---:|---:|
+  | New Carlisle, IN | 413 | 618 | 166 |
+  | W Texas | 333 | 587 | 114 |
+  | Lake Mariner, NY | 110 | 475 | 124 |
+  | *spread* | *3.75×* | *1.30×* | *1.46×* |
+
+  **The siting spread compresses under both marginal conventions, and the ranking inverts on the
+  20-year one** — the most consequential finding added since the first draft.
+- **The researcher session** (25 prompts, 800k window, caching on, measured f = 0.20): 0.94 kWh
+  → 326 g CO₂e (US avg) → 3.11 L water total / 0.17 L on-site. Full band across grid conventions:
+  103–607 g (5.9×).
 
 ## Decisions already made (don't relitigate without reason)
 
@@ -91,6 +103,25 @@ individually.
   Validation: Meta's disclosed 8,930 tCO₂e ÷ our 21.6 GWh backs out 414 gCO₂/kWh, a real US grid
   factor. The honest width is the Epoch FLOP uncertainty, not the conversion — 3.7 Sonnet spans
   4.9–89.6 GWh on Epoch's own stated FLOP range. CLAUDE.md now records this as exception #2.
+
+- **Long-run marginal rates retrieved (NREL Cambium 2023) — the siting finding now rests on the
+  right convention.** The earlier AVERT-only version over-claimed: it quantified the fleet's
+  spread as collapsing 3.8× → 1.3× on short-run marginal rates, when AVERT's own docs disclaim
+  horizons beyond 5 years and these are 20-year assets. Cambium's 20-year levelized LRMERs (its
+  published defaults: 2025 start, 20 yr, 3% real, mid-case) are region-matched: **PJM_West 166,
+  ERCOT 114, NYISO 124 gCO₂/kWh**. The finding survives and is *stronger* — the spread compresses
+  under both marginal conventions, which are biased in opposite directions on level (1.30× short-run,
+  1.46× long-run). And the ranking inverts: Texas is cleanest on a 20-year basis, not upstate NY,
+  because ERCOT/PJM_West induce build far cleaner than their current mix (0.34×, 0.40× of average)
+  while NY induces build no cleaner than its existing hydro and nuclear (1.13×).
+- **The output share is measured, and the old assumption was 1.4× too high.** `measure_usage.py`
+  reads token counters from local Claude Code transcripts (counters only, never content). Over 56
+  sessions / 16,240 assistant messages for one heavy user: cache hit rate **98.3%**, output share
+  **19–24%** (against an assumed 0.5), cached reads **72% of session energy**, session distribution
+  median 89 Wh / p90 18.0 kWh / max 51.6 kWh (mean/median 48). The brief's headline moved from
+  1.31 kWh / 456 g / 4.4 L to **0.94 kWh / 326 g / 3.11 L**, and Section 5 is now the only measured
+  content in either document. Caveat recorded there: Claude Code's input is mostly tool results,
+  a different workload from the paper-reading scenario modelled.
 
 ## Open threads / what I'd do next
 - **No measured long-context energy curve exists for any Claude model** — the 200k–1M context window

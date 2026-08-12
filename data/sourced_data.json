@@ -140,6 +140,25 @@
     "derivation": "On-peak = non-holiday weekdays 07:00-23:00 = 80 of 168 h/week (0.4762); flat 24/7 load weight = 0.4762*1041 + 0.5238*976 = 1007 lb/MWh; ratio to 811 system average = 1.24x",
     "series_status": "Discontinued after this edition. PJM's Reports & Notices library lists no emissions report for data years 2023-2025 as of 2026-08-11; PJM now publishes marginal emission rates via Data Miner and an interactive Emissions page instead."
   },
+  "cambium_2023_lrmer": {
+    "source": "NREL, 'Long-Run Marginal Emission Rates for Electricity - Workbooks for 2023 Cambium Data' (released Feb 2024), sheet 'Data - Annual'",
+    "url": "https://data.openei.org/submissions/8279",
+    "method": "Long-run marginal emission rate: emissions induced or avoided by a sustained change in demand, accounting for the building and retiring of capital assets as well as dispatch. This is the horizon-appropriate convention for multi-decade data-center loads; AVERT's short-run rates explicitly should not be used beyond 5 years, and Anthropic's Hawesville lease is 20 years.",
+    "levelization_as_published": {"start_year": 2025, "evaluation_period_years": 20, "real_discount_rate": 0.03, "scenario": "Mid-case", "gwp": "100-year (AR6)", "location": "End-use", "emission": "CO2", "stage": "Combustion"},
+    "units": "kg CO2/MWh at point of end-use == gCO2/kWh; distribution losses included",
+    "extracted_by": "extract_cambium.py",
+    "gco2_per_kwh": {"PJM_West": 166.4, "ERCOT": 114.1, "NYISO": 124.4, "MISO_Central": 231.1},
+    "gco2e_per_kwh_incl_precombustion": {"PJM_West": 209.4, "ERCOT": 149.0, "NYISO": 158.1, "MISO_Central": 284.3},
+    "site_mapping": {"PJM_West": "New Carlisle, IN (Project Rainier)", "ERCOT": "Barber Lake / Abernathy, TX", "NYISO": "Lake Mariner, Barker, NY", "MISO_Central": "Hawesville, KY"},
+    "lrmer_over_egrid_average": {"PJM_West/RFCW": 0.4, "ERCOT/ERCT": 0.34, "NYISO/NYUP": 1.13},
+    "spread_across_sited_regions": 1.46,
+    "caveats": [
+      "Scenario-dependent; Mid-case shown. The workbook carries 8 scenarios including high/low gas price and 95%/100% decarbonization.",
+      "GEA regions are not coextensive with eGRID subregions, so LRMER-vs-average ratios cross boundaries; the within-Cambium comparison across the three sites does not.",
+      "Cambium NYISO spans all of New York, not upstate alone.",
+      "'End-use' location includes distribution losses, modestly high for a transmission-connected campus."
+    ]
+  },
   "aggregate": {
     "iea": {"source": "IEA Energy and AI (2025-04) + Key Questions update (2026)", "datacenters_twh_2024": 415, "datacenters_twh_2025": 485, "datacenters_twh_2030_proj": 945, "ai_specific_twh_2025": 155},
     "devries_gao_2025": {"ai_twh_2025_upper": 82, "source": "de Vries-Gao, Joule (2025-05)"},
