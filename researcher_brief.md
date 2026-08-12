@@ -1,7 +1,7 @@
 ---
 title: "What Does Your Opus Session Cost? Water and Carbon for a Heavy Research Use-Case"
 subtitle: "A companion brief to *The Environmental Footprint of Claude* — derived estimates, stated assumptions, honest error bars"
-author: "Prepared for Josh Issa"
+author: "Prepared by Josh Issa"
 date: "August 11, 2026"
 geometry: margin=2.6cm
 fontsize: 11pt

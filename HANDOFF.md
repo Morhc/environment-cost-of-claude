@@ -129,7 +129,10 @@ individually.
   only python3; `--raw` reads no data files), then merges. For this user: laptop **308 kWh** +
   Trillium **492 kWh** = **800 kWh / 279 kg CO₂e / ~700 driving miles** over 58 days, 104 sessions.
   **62% of the total was on Trillium**, so every laptop-only figure quoted earlier was a 2.6×
-  undercount. Trillium roots are `/home/jissa/.claude/projects` and `/scratch/jissa/.claude/projects`.
+  undercount. On the cluster the roots are `/home/$USER/.claude/projects` and
+  `/scratch/$USER/.claude/projects`; `collect_usage.sh` discovers both and scopes them to
+  `$USER`. The account name is deliberately not recorded here — it lives in the maintainer's
+  own notes, so this repo stays user-agnostic.
 - **Scope remote discovery to `$USER`.** A first version globbed `/scratch/*/.claude/projects`,
   which matched a *colleague's* group-readable directory (`cchin13`) and silently added ~2.7 kWh of
   someone else's usage. Fixed to `/scratch/$USER`. On a shared cluster, wildcards over home-like

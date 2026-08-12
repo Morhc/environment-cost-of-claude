@@ -1,7 +1,7 @@
 ---
 title: "The Environmental Footprint of Claude: What Can Actually Be Quantified"
 subtitle: "A source-critical analysis of Anthropic's disclosures, the academic literature, and third-party estimates"
-author: "Prepared for Josh Issa"
+author: "Prepared by Josh Issa"
 date: "August 11, 2026"
 geometry: margin=2.6cm
 fontsize: 11pt
