@@ -43,6 +43,20 @@ ap.add_argument("--days", type=float, help="only sessions active in the last N d
 ap.add_argument("--grid", default="eGRID_US_avg", help="convention for the headline (default US average)")
 ap.add_argument("--project", help="substring filter on the project directory name")
 ap.add_argument("--list-grids", action="store_true", help="print all conventions and exit")
+ap.add_argument("--json", action="store_true",
+                help="emit totals as JSON, for summing across machines (see --help epilog)")
+ap.epilog = """
+This reads ONE machine's local history. Claude Code stores transcripts per-machine with no central
+ledger, so a full personal total means running this on each machine and adding the results:
+
+    # on each machine
+    python3 measure_usage.py --json > usage-$(hostname -s).json
+    # then, together
+    jq -s '{kwh: (map(.kwh)|add), sessions: (map(.sessions)|add)}' usage-*.json
+
+Still uncounted afterwards: Claude Code run on remote hosts (its transcripts live on those hosts),
+cloud sessions (server-side, never written locally), Claude Desktop, and claude.ai.
+"""
 a = ap.parse_args()
 
 if a.list_grids:
@@ -118,6 +132,19 @@ if stamps:
     d0, d1 = min(stamps)[:10], max(stamps)[:10]
     days = (datetime.date.fromisoformat(d1) - datetime.date.fromisoformat(d0)).days
     span = f" | {d0} .. {d1} ({days} days)"
+
+if a.json:
+    import platform
+    print(json.dumps({
+        "machine": platform.node(), "sessions": len(sessions), "messages": tot("msgs"),
+        "first": min(stamps) if stamps else None, "last": max(stamps) if stamps else None,
+        "tokens": {"fresh": F, "cached": C, "output": O},
+        "kwh": round(kwh, 3),
+        "co2_kg": {k: round(kwh * v / 1000, 3) for k, v in GRIDS.items()},
+        "water_l": {"on_site": round(kwh * WUE_ON, 1), "total": round(kwh * (WUE_ON + WUE_OFF), 1)},
+        "note": "one machine only; energy/CO2/water derived from Couch rates, 2-4x uncertainty",
+    }, indent=1))
+    raise SystemExit
 
 print(f"{len(sessions)} sessions ({tot('subagents')} with subagent transcripts) | "
       f"{tot('msgs'):,} assistant messages{span}")

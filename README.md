@@ -99,6 +99,18 @@ third-party rates carrying 2–4× method uncertainty, and the spread across acc
 alone is ~7×. The tool prints all of them rather than one number, for the reasons in Section 4 of
 the brief.
 
+**It sees one machine.** Claude Code keeps transcripts per-machine with no central ledger, so a
+full personal total means running it everywhere and adding up:
+
+```bash
+python3 measure_usage.py --json > usage-$(hostname -s).json     # on each machine
+jq -s '{kwh: (map(.kwh)|add)}' usage-*.json                     # then together
+```
+
+Four things stay uncounted even then: Claude Code on remote hosts (transcripts live on the host you
+ran it on), cloud sessions (server-side, never written to local disk), Claude Desktop, and
+claude.ai. There is no way to recover those from the filesystem.
+
 ## A note on the numbers
 
 Anthropic publishes no environmental data, so nothing here about Claude is measured — it is all
