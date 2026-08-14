@@ -27,11 +27,16 @@ Published at **github.com/Morhc/environment-cost-of-claude** (public, MIT + CC B
 | `sources.json` | **Untracked.** Your machines and label globs. `sources.example.json` is the template. |
 | `data/usage_cache.json` | **Untracked.** Collected usage; holds every directory you have worked in. |
 
-## Current measured totals (14 August 2026, both machines)
+## Measured totals — snapshot, 14 August 2026, both machines
 
-892.5 kWh · 311 kg CO₂e (US average) · 2,965 L water of which 161 L on-site · 103 sessions ·
-54,700 messages · 60 days. Cluster holds ~62%. Band across the fifteen conventions: 245–1,732
+901 kWh · 314 kg CO₂e (US average) · 2,994 L water of which 162 L on-site · 108 sessions ·
+55,329 messages · 61 days. Cluster holds ~61%. Band across the fifteen conventions: 252–1,781
 driving miles. **Any total is a snapshot that includes the work of producing it.**
+
+These numbers are stale the moment they are written — they moved by 9 kWh and 5 sessions during
+the afternoon that added the macOS app. Do not cite them; run the dashboard, or
+`python3 measure_usage.py`, and read the current figures. They are recorded here only to give a
+successor a sense of scale and something to sanity-check a fresh collection against.
 
 ## Key quantitative anchors
 
