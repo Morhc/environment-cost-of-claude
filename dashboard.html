@@ -68,6 +68,7 @@
   .seg button[aria-pressed="true"]{background:var(--blue);color:#fff;font-weight:600}
   #chart text{fill:var(--muted);font-size:13px}
   #chart .cap{font-size:15px;font-weight:600}
+  #chart .unit{font-size:12px}
   #chart .axis{stroke:var(--grid);stroke-width:1}
   #chart .cur{stroke:var(--blue);fill:none;stroke-width:2;stroke-linejoin:round}
   #chart .cum{stroke:var(--orange);fill:none;stroke-width:2;stroke-linejoin:round}
@@ -256,7 +257,9 @@ function chart() {
     conv = D.water.total_l_per_kwh / (equiv ? eq.water.litres_per_shower : 1);
     unit = equiv ? 'showers' : 'L';
   }
-  const W = 900, H = 560, L = 84, R = 90, T = 58, B = 46;
+  // L and R have to hold the widest unit label, not just the widest tick number: "household-days"
+  // is three times the width of "kWh", and at the old 84/90 it ran off both edges of the viewBox.
+  const W = 900, H = 560, L = 96, R = 100, T = 58, B = 46;
   const day = S.map(d => d.kwh * conv), cum = S.map(d => d.cum * conv);
   const maxD = Math.max(...day, 1e-9) * 2, maxC = Math.max(...cum, 1e-9) * 2;
   const x = i => L + i * (W - L - R) / Math.max(S.length - 1, 1);
@@ -298,8 +301,8 @@ function chart() {
   svg.innerHTML = `
     <text class="cap" x="${L - 10}" y="26" text-anchor="end" fill="var(--blue)">per day</text>
     <text class="cap" x="${W - R + 10}" y="26" fill="var(--orange)">cumulative</text>
-    <text x="${L - 10}" y="46" text-anchor="end">${unit}</text>
-    <text x="${W - R + 10}" y="46">${unit}</text>
+    <text class="unit" x="${L - 10}" y="46" text-anchor="end">${unit}</text>
+    <text class="unit" x="${W - R + 10}" y="46">${unit}</text>
     ${ticks}${xlab}
     <path class="area" d="${band}"/>
     <path class="area cumband" d="${cband}"/>
@@ -308,6 +311,17 @@ function chart() {
     <path class="cum" d="${line(cum, yC)}"/>
     <g id="hover"></g>
     <rect class="hit" x="${L}" y="0" width="${W - L - R}" height="${H}"/>`;
+  // Margins are sized for the longest unit this dashboard currently uses, but a new equivalence
+  // could be wider still. Measure what was actually laid out and shrink to fit rather than let it
+  // clip at the viewBox edge, which is silent -- the label just ends mid-word.
+  svg.querySelectorAll('.unit').forEach(t => {
+    const anchored = t.getAttribute('text-anchor') === 'end', tx = +t.getAttribute('x');
+    const room = (anchored ? tx : W - tx) - 4;
+    for (let fs = 12; t.getComputedTextLength() > room && fs > 8.5; fs -= 0.5) {
+      t.style.fontSize = (fs - 0.5) + 'px';
+    }
+  });
+
   const hit = svg.querySelector('.hit'), hov = svg.querySelector('#hover');
   hit.onmousemove = e => {
     const bb = svg.getBoundingClientRect();
