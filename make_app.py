@@ -50,7 +50,9 @@ if [ ! -d "$REPO" ]; then
 fi
 cd "$REPO" || exit 1
 export DASHBOARD_AUTOQUIT=1
-exec "$PY" dashboard.py >>"$LOG" 2>&1
+# -u because stdout is a file here, not a tty: without it Python buffers, and the log stays
+# empty exactly when you need it -- when the app died before flushing.
+exec "$PY" -u dashboard.py >>"$LOG" 2>&1
 """
 
 
