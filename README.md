@@ -32,6 +32,24 @@ large undercount. Copy `sources.example.json` to `sources.json` and list the hos
 { "remote": ["trillium", "some-other-box"] }
 ```
 
+You can also give machines and projects real names instead of hostnames and paths:
+
+```json
+{
+  "remote": ["trillium"],
+  "labels": {
+    "tri-login*":              "Trillium",
+    "/scratch/*/mesa-*":       "ATS",
+    "/Users/me/code/thing*":   "Thing"
+  }
+}
+```
+
+Patterns are globs, not exact strings, because cluster login nodes and laptop hostnames change
+between sessions — matching `tri-login06` exactly would split one machine into a new row every
+time you log in. The longest matching pattern wins, so a specific rule beats a general one, and
+the real host or path stays visible underneath the label.
+
 Local is always included. Remote hosts are read over SSH — they need only `python3`, since the
 collector is piped to them over stdin. Transcript roots are auto-discovered and **scoped to
 `$USER`**, because a wildcard over `/scratch/*` matches other people's directories on a shared

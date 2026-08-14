@@ -57,6 +57,18 @@
   .legend{display:flex;gap:16px;font-size:12px;color:var(--ink2);margin:4px 0 10px}
   .sw{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;
       margin-right:5px}
+  .seg{display:inline-flex;border:1px solid var(--base);border-radius:7px;overflow:hidden}
+  .seg button{border:none;border-radius:0;background:var(--raised);padding:6px 12px;
+              border-left:1px solid var(--grid)}
+  .seg button:first-child{border-left:none}
+  .seg button[aria-pressed="true"]{background:var(--blue);color:#fff;font-weight:600}
+  #chart text{fill:var(--muted);font-size:11px}
+  #chart .axis{stroke:var(--grid);stroke-width:1}
+  #chart .cur{stroke:var(--blue);fill:none;stroke-width:2;stroke-linejoin:round}
+  #chart .cum{stroke:var(--orange);fill:none;stroke-width:2;stroke-linejoin:round}
+  #chart .area{fill:var(--blue);opacity:.13}
+  #chart .hit{fill:transparent}
+  #chart .mark{stroke:var(--ink2);stroke-width:1;stroke-dasharray:3 3}
   [hidden]{display:none !important}
   .scroll{overflow-x:auto}
   tr[data-tip]{cursor:default}
@@ -95,6 +107,24 @@
       </label>
     </div>
     <div class="tiles" id="tiles"></div>
+
+    <div class="row" style="margin-top:26px">
+      <strong style="font-size:14px">Over time</strong>
+      <span class="seg" id="metric">
+        <button data-m="energy" aria-pressed="true">Energy</button>
+        <button data-m="co2" aria-pressed="false">CO&#8322;</button>
+        <button data-m="water" aria-pressed="false">Water</button>
+      </span>
+      <span class="spacer"></span>
+      <span class="legend" style="margin:0">
+        <span><span class="sw" style="background:var(--blue)"></span>per day</span>
+        <span><span class="sw" style="background:var(--orange)"></span>cumulative</span>
+      </span>
+    </div>
+    <svg id="chart" viewBox="0 0 900 300" preserveAspectRatio="none"
+         style="width:100%;height:300px"></svg>
+    <div class="sub" id="chartfoot" style="margin-top:2px"></div>
+
     <div class="note" id="costnote"></div>
   </section>
 
@@ -143,6 +173,97 @@ document.addEventListener('mousemove', e => {
   tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 10) + 'px';
   tip.style.top = (e.clientY + 18) + 'px';
 });
+
+
+// ---- live chart -------------------------------------------------------------------------
+let METRIC = 'energy';
+document.querySelectorAll('#metric button').forEach(b => b.onclick = () => {
+  METRIC = b.dataset.m;
+  document.querySelectorAll('#metric button').forEach(x =>
+    x.setAttribute('aria-pressed', x === b));
+  chart();
+});
+
+function dailySeries() {
+  // Transcripts stamp every record in UTC. Bin into the viewer's own local days, so a laptop
+  // and a cluster in different zones still land on one wall clock.
+  const by = {};
+  for (const [k, v] of Object.entries(D.hourly || {})) {
+    const d = new Date(Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10),
+                                +k.slice(11, 13)));
+    const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                String(d.getDate()).padStart(2, '0');
+    const r = D.rates_wh_per_token;
+    by[key] = (by[key] || 0) + (v[0] * r.fresh + v[1] * r.cached + v[2] * r.out) / 1000;
+  }
+  const keys = Object.keys(by).sort();
+  if (!keys.length) return [];
+  const out = [];
+  const cur = new Date(keys[0] + 'T00:00'), end = new Date(keys[keys.length - 1] + 'T00:00');
+  while (cur <= end) {                                  // keep empty days: the gaps are signal
+    const key = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0') + '-' +
+                String(cur.getDate()).padStart(2, '0');
+    out.push({date: key, kwh: by[key] || 0});
+    cur.setDate(cur.getDate() + 1);
+  }
+  let acc = 0;
+  out.forEach(d => { acc += d.kwh; d.cum = acc; });
+  return out;
+}
+
+function chart() {
+  const svg = $('#chart'), S = dailySeries();
+  if (!S.length) { svg.innerHTML = ''; return; }
+  const g = +$('#grid').value;
+  const conv = METRIC === 'energy' ? 1 : METRIC === 'co2' ? g / 1000 : D.water.total_l_per_kwh;
+  const unit = METRIC === 'energy' ? 'kWh' : METRIC === 'co2' ? 'kg CO\u2082' : 'L';
+  const W = 900, H = 300, L = 54, R = 54, T = 14, B = 26;
+  const day = S.map(d => d.kwh * conv), cum = S.map(d => d.cum * conv);
+  const maxD = Math.max(...day, 1e-9), maxC = Math.max(...cum, 1e-9);
+  const x = i => L + i * (W - L - R) / Math.max(S.length - 1, 1);
+  const yD = v => H - B - (v / maxD) * (H - B - T);
+  const yC = v => H - B - (v / maxC) * (H - B - T);
+  const line = (arr, y) => arr.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' +
+                                              y(v).toFixed(1)).join(' ');
+  const area = line(day, yD) + ` L${x(S.length - 1).toFixed(1)} ${H - B} L${L} ${H - B} Z`;
+  const ticks = [0, 0.5, 1].map(f =>
+    `<text x="${L - 8}" y="${(yD(maxD * f) + 4).toFixed(1)}" text-anchor="end">` +
+    `${fmt(maxD * f, maxD < 10 ? 1 : 0)}</text>` +
+    `<text x="${W - R + 8}" y="${(yC(maxC * f) + 4).toFixed(1)}">${fmt(maxC * f, 0)}</text>`).join('');
+  const every = Math.ceil(S.length / 7);
+  const xlab = S.map((d, i) => i % every ? '' :
+    `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${d.date.slice(5)}</text>`).join('');
+  svg.innerHTML = `
+    <line class="axis" x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}"/>
+    ${ticks}${xlab}
+    <path class="area" d="${area}"/>
+    <path class="cur" d="${line(day, yD)}"/>
+    <path class="cum" d="${line(cum, yC)}"/>
+    <text x="${L - 8}" y="${T + 2}" text-anchor="end" style="font-weight:600">per day</text>
+    <text x="${W - R + 8}" y="${T + 2}" style="font-weight:600">total</text>
+    <g id="hover"></g>
+    <rect class="hit" x="${L}" y="0" width="${W - L - R}" height="${H}"/>`;
+  const hit = svg.querySelector('.hit'), hov = svg.querySelector('#hover');
+  hit.onmousemove = e => {
+    const bb = svg.getBoundingClientRect();
+    const px = (e.clientX - bb.left) / bb.width * W;
+    const i = Math.max(0, Math.min(S.length - 1,
+      Math.round((px - L) / ((W - L - R) / Math.max(S.length - 1, 1)))));
+    hov.innerHTML = `<line class="mark" x1="${x(i)}" y1="${T}" x2="${x(i)}" y2="${H - B}"/>` +
+      `<circle cx="${x(i)}" cy="${yD(day[i])}" r="4" fill="var(--blue)"/>` +
+      `<circle cx="${x(i)}" cy="${yC(cum[i])}" r="4" fill="var(--orange)"/>`;
+    tip.textContent = `${S[i].date} — ${fmt(day[i], 2)} ${unit} that day · ` +
+                      `${fmt(cum[i], 1)} ${unit} cumulative`;
+    tip.style.opacity = 1;
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 10) + 'px';
+    tip.style.top = (e.clientY + 18) + 'px';
+  };
+  hit.onmouseleave = () => { hov.innerHTML = ''; tip.style.opacity = 0; };
+  const active = S.filter(d => d.kwh > 0).length;
+  $('#chartfoot').textContent =
+    `${S.length} days, ${active} with activity · left axis per day, right axis cumulative · ` +
+    `binned in your local timezone from UTC transcripts`;
+}
 
 // ---- rendering --------------------------------------------------------------------------
 function tiles() {
@@ -209,10 +330,12 @@ function render() {
       `${k.replace(/_/g, ' ')} — ${v.toFixed(0)} g/kWh</option>`).join('');
   }
   tiles();
+  chart();
 
   const g = +$('#grid').value;
   bartable($('#srctable'), D.sources.map(s => ({
-    name: s.source, sub: s.roots.join('<br>'), wh: s.wh, share: s.share,
+    name: s.source, sub: (s.host && s.host !== s.source ? s.host + ' · ' : '') +
+         s.roots.join('<br>'), wh: s.wh, share: s.share,
     tip: `${s.sessions} sessions · ${fmt(s.messages)} messages · ` +
          `${fmt(s.wh / 1000 * g / 1000, 1)} kg CO₂`,
   })), );
@@ -227,7 +350,8 @@ function render() {
   const big = D.projects.filter(p => p.share >= D.threshold);
   const rest = D.projects.filter(p => p.share < D.threshold);
   const rows = big.map(p => ({
-    name: p.project, sub: `${p.source} · ${p.root}`, wh: p.wh, share: p.share,
+    name: p.project, sub: `${p.source} · ${p.path || p.root}`, wh: p.wh,
+    share: p.share,
     tip: `${p.sessions} sessions · ${fmt(p.messages)} messages · ` +
          `${fmt(p.wh / 1000 * g / 1000, 1)} kg CO₂`,
   }));

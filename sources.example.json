@@ -1,5 +1,20 @@
 {
-  "_comment": "Copy to sources.json and list the machines you run Claude Code on. Local is always included. Each entry is an SSH host alias; roots are auto-discovered and scoped to $USER. Give explicit roots only if discovery misses them.",
-  "remote": ["trillium"],
-  "_alternative_form": [{"host": "some-cluster", "roots": ["/scratch/me/.claude/projects"]}]
+  "_comment": "Copy to sources.json. 'remote' lists SSH host aliases to collect from (local is always included). 'labels' maps glob patterns onto human names for machines and project paths - use globs, not exact strings, because cluster login nodes and laptop hostnames change between sessions. Longest matching pattern wins.",
+  "remote": [
+    "trillium"
+  ],
+  "labels": {
+    "tri-login*": "Trillium",
+    "*.wireless.example.edu": "Laptop",
+    "/scratch/*/mesa-*": "MESA runs",
+    "/Users/me/code/thing*": "Thing"
+  },
+  "_alternative_remote_form": [
+    {
+      "host": "some-cluster",
+      "roots": [
+        "/scratch/me/.claude/projects"
+      ]
+    }
+  ]
 }

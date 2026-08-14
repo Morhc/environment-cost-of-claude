@@ -17,6 +17,7 @@ report: 2-4x on the per-token rates, and a factor of ~7 across grid accounting c
 import http.server
 import json
 import os
+import fnmatch
 import socketserver
 import subprocess
 import sys
@@ -84,6 +85,19 @@ def collect():
     return out, errors
 
 
+def label_for(value, labels, fallback=None):
+    """Map a hostname or path onto a human name using glob patterns from sources.json.
+    Globs, not exact strings: a cluster's login node changes between sessions (tri-login01,
+    tri-login04, ...) and laptop hostnames follow whatever network they are on, so exact
+    matching would fragment one machine into several rows. Longest pattern wins, so a specific
+    rule beats a general one."""
+    best = None
+    for pat, name in (labels or {}).items():
+        if fnmatch.fnmatch(value, pat) and (best is None or len(pat) > len(best[0])):
+            best = (pat, name)
+    return best[1] if best else (fallback if fallback is not None else value)
+
+
 def pretty_project(name, cwd):
     """Prefer the real working directory recorded in the transcript. The project DIRECTORY name
     is a lossy encoding -- Claude Code maps "/", "." and "_" all onto "-", so decoding it turns
@@ -96,7 +110,7 @@ def pretty_project(name, cwd):
     return name
 
 
-def build(raws, errors):
+def build(raws, errors, labels=None):
     """Turn raw per-host token counts into everything the three tabs need."""
     D = json.load(open("data/sourced_data.json"))
     c = D["couch_2026"]
@@ -111,9 +125,15 @@ def build(raws, errors):
 
     wh = lambda s: s["fresh"] * R_IN + s["cached"] * R_CACHE + s["out"] * R_OUT
     sessions, per_source, stamps = [], {}, []
+    hourly = {}
     for d in raws:
+        for k, v in (d.get("hourly") or {}).items():
+            h = hourly.setdefault(k, [0, 0, 0])
+            for i in range(3):
+                h[i] += v[i]
         src = d.get("source") or "unknown"
-        b = per_source.setdefault(src, dict(source=src, roots=d.get("roots", []), wh=0.0,
+        b = per_source.setdefault(src, dict(source=label_for(src, labels), host=src,
+                                            roots=d.get("roots", []), wh=0.0,
                                             sessions=0, messages=0, fresh=0, cached=0, out=0))
         for s in d.get("sessions_detail", []):
             s = dict(s)
@@ -130,9 +150,12 @@ def build(raws, errors):
     total_wh = sum(s["wh"] for s in sessions) or 1e-9
     per_project = {}
     for s in sessions:
-        key = (s["source"], s["project"])
-        p = per_project.setdefault(key, dict(project=pretty_project(s["project"], s.get("cwd")),
-                                             raw_name=s["project"], source=s["source"],
+        key = label_for(pretty_project(s["project"], s.get("cwd")), labels,
+                        (s["source"], s["project"]))
+        path = pretty_project(s["project"], s.get("cwd"))
+        p = per_project.setdefault(key, dict(project=label_for(path, labels, path), path=path,
+                                             raw_name=s["project"],
+                                             source=label_for(s["source"], labels),
                                              root=s.get("root", ""), wh=0.0, sessions=0,
                                              messages=0))
         p["wh"] += s["wh"]; p["sessions"] += 1; p["messages"] += s["msgs"]
@@ -155,6 +178,8 @@ def build(raws, errors):
             "last": max(stamps) if stamps else None,
             "tokens": {k: sum(s[k] for s in sessions) for k in ("fresh", "cached", "out")},
         },
+        "hourly": hourly,
+        "rates_wh_per_token": {"fresh": R_IN, "cached": R_CACHE, "out": R_OUT},
         "grids": grids,
         "water": {"on_site_l_per_kwh": WUE_ON, "total_l_per_kwh": WUE_ON + WUE_OFF},
         "equivalences": D["equivalences"],
@@ -165,8 +190,9 @@ def build(raws, errors):
 
 
 def refresh():
+    cfg = load_config()
     raws, errors = collect()
-    data = build(raws, errors)
+    data = build(raws, errors, cfg.get("labels"))
     os.makedirs("data", exist_ok=True)
     json.dump(data, open(CACHE, "w"), indent=1)
     return data
