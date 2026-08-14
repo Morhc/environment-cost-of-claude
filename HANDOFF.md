@@ -1,20 +1,23 @@
-# Handoff — state of the work as of August 11, 2026
+# Handoff — state of the work as of August 14, 2026
 
-This project was built in a Claude cloud session and moved to local. Everything below is current;
+The 28-page report and 16-page brief were **retired on 14 August 2026**, once the dashboard
+replaced their hypothetical session with real measurement. Their sourcing lives on in
+`PROVENANCE.md`; the long-form claims audit, aggregate-consumption literature and section-by-
+section review of the academic record were dropped, and remain in git history at `3d7008a`.
+
+Everything below is current;
 `CLAUDE.md` holds the working rules, this file holds the state and the open threads.
 
 ## What exists
 
 | File | What it is |
 |:---|:---|
-| `report.md` → `claude-environmental-impact-report.pdf` | Main report, 28 pp, 5 figures, 8 tables, ~85 sources; Appendix C = training bounds |
-| `researcher_brief.md` → `opus-researcher-footprint-brief.pdf` | Companion brief, 15 pp, 1 figure; Section 5 = measured usage |
+| `PROVENANCE.md` | Where every number comes from, how far to trust it, what is unknown |
+| `dashboard.py` / `dashboard.html` | The local dashboard — four tabs, refresh button |
 | `data/sourced_data.json` | Every plotted value with its source, method, and credibility flag |
-| `make_figures.py` | Figures 1–5 of the main report |
-| `make_scenario_figure.py` | The brief's three-panel session figure |
-| `scenario_calc.py` | The session arithmetic — single source for every number in the brief |
+| `make_figures.py` | The five sourced figures |
 | `extract_avert.py` / `extract_cambium.py` | Short-run and long-run marginal grid factors from EPA / NREL |
-| `training_bounds.py` | Derived training-energy bounds behind Appendix C |
+| `training_bounds.py` | Derived training-energy bounds behind PROVENANCE §7 |
 | `measure_usage.py` | Measured token mix from local Claude Code transcripts (counters only) |
 | `CLAUDE.md` | Project conventions (strictness rule, honesty rule, source hierarchy, palette) |
 
@@ -95,7 +98,7 @@ individually.
   PJM's own flat-weighted 2022 marginal rate (457) differ by a third for roughly the same
   footprint. Both are printed rather than reconciled.
 
-- **Bottom-up training bounds — done**, as Appendix C of the main report, at the user's explicit
+- **Bottom-up training bounds — done**, now PROVENANCE §7, at the user's explicit
   direction (offered four placements; they chose the labeled appendix). `training_bounds.py`
   calibrates Wh/FLOP against Llama 3.1 405B's disclosed 3.8e25 FLOP + 30.84M H100-hours rather
   than stacking hardware guesses, then applies it to Epoch's Claude FLOP estimates. Claude 3 Opus

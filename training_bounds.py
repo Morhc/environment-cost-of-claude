@@ -1,7 +1,7 @@
 """Bottom-up bounds on Claude training energy and carbon.
 
 EVERYTHING THIS PRINTS IS DERIVED, NOT PUBLISHED. It is the deliberate exception to the
-strictness rule, confined to Appendix C of the main report. See CLAUDE.md.
+strictness rule, confined to section 7 of PROVENANCE.md. See CLAUDE.md.
 
 Method. Rather than stack assumptions about hardware, utilization and PUE from scratch, the
 primary route calibrates energy-per-FLOP against the one modern training run for which both
@@ -105,11 +105,11 @@ print(f"  GPT-3 (Patterson estimate):   {gpt3:6.2f} GWh")
 print(f"  Llama 3.1 405B (disclosed):   {llama_wh/1e9:6.2f} GWh (chip-only, no PUE)")
 print(f"  Claude 3 Opus (derived here): {opus_ce:6.2f} GWh")
 # Denominators that make a GWh legible.
-session_wh = 936                                      # central researcher session, scenario_calc.py
+session_wh = 936                                      # a heavy modelled session, for scale
 gemini_wh = D["google_2025"]["median_text_prompt"]["wh"]
 rainier_mw = D["datacenters"]["new_carlisle_in"]["mw_observed_2026_03"]
 print(f"\n  In other units, the Claude 3 Opus central figure ({opus_ce:.1f} GWh) is:")
-print(f"    ~{opus_ce*1e9/session_wh/1e6:.1f}M heavy researcher sessions (at {session_wh} Wh each)")
+print(f"    ~{opus_ce*1e9/session_wh/1e6:.1f}M heavy modelled sessions (at {session_wh} Wh each)")
 print(f"    ~{opus_ce*1e9/gemini_wh/1e9:.0f}B median Gemini prompts (at {gemini_wh} Wh each)")
 print(f"    ~{opus_ce*1e9/(rainier_mw*1e6):.0f} hours of the New Carlisle campus at its observed "
       f"{rainier_mw} MW draw")

@@ -5,40 +5,27 @@ MAIN_FIGS = figures/fig1_claude_energy_vs_tokens.png \
             figures/fig3_token_scaling.png \
             figures/fig4_datacenters.png \
             figures/fig5_training.png
-BRIEF_FIG = figures/fig_s1_session.png
-# figures/fig_s2_usage_alltime.png is NOT a make target: it is built from the author's own
-# Claude Code transcripts via `measure_usage.py --plot`, which no other reader can reproduce.
-# It is committed as a static asset.
+# figures/fig_s2_usage_alltime.png is NOT a make target: it is built from your own Claude Code
+# transcripts via `measure_usage.py --plot`, which no other reader can reproduce.
 
-.PHONY: all report brief figures scenario dashboard clean
+.PHONY: all dashboard figures provenance clean
 
-all: report brief
+all: figures
 
-report: claude-environmental-impact-report.pdf
-brief: opus-researcher-footprint-brief.pdf
-figures: $(MAIN_FIGS) $(BRIEF_FIG)
+# Local dashboard: your own usage, four tabs, refresh button
+dashboard:
+	python3 dashboard.py
 
-claude-environmental-impact-report.pdf: report.md $(MAIN_FIGS)
-	pandoc $< -o $@ $(PANDOC_FLAGS)
-
-opus-researcher-footprint-brief.pdf: researcher_brief.md $(BRIEF_FIG)
-	pandoc $< -o $@ $(PANDOC_FLAGS)
+figures: $(MAIN_FIGS)
 
 $(MAIN_FIGS): make_figures.py data/sourced_data.json
 	python3 make_figures.py
 
-$(BRIEF_FIG): make_scenario_figure.py data/sourced_data.json
-	python3 make_scenario_figure.py
+# Optional: PROVENANCE.md as a PDF for citation. Needs pandoc + xelatex + DejaVu fonts.
+provenance: PROVENANCE.pdf
+PROVENANCE.pdf: PROVENANCE.md $(MAIN_FIGS)
+	pandoc $< -o $@ $(PANDOC_FLAGS) -V geometry:margin=2.6cm -V mainfont="DejaVu Sans" \
+	  -V fontsize=11pt -V linkcolor=blue --toc
 
-# Local dashboard: your own usage, three tabs, refresh button
-dashboard:
-	python3 dashboard.py
-
-# Print every scenario permutation (energy, carbon at 4 grids, water)
-scenario:
-	python3 scenario_calc.py
-
-# Note: both PDFs are committed to the repo (they are the deliverable). `make clean`
-# removes them locally; `git checkout` restores the committed copies.
 clean:
-	rm -f claude-environmental-impact-report.pdf opus-researcher-footprint-brief.pdf
+	rm -f PROVENANCE.pdf

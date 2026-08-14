@@ -68,23 +68,15 @@ pick, which alone spans a factor of about seven.
 The dashboard shows that spread rather than hiding it behind one number. Why those particular
 rates and factors, and how much to trust each, is what the report is for.
 
-## The report is the provenance
+## Provenance
 
+Every rate, grid factor and equivalence the dashboard applies is documented in
+**[`PROVENANCE.md`](PROVENANCE.md)**: where it came from, how far to trust it, and what is still
+unknown. `make provenance` builds it as a PDF if you want one for citation.
 
-Every number the dashboard prints traces back to a source documented here.
-
-- **`claude-environmental-impact-report.pdf`** (28 pp) — source-critical analysis of what can be
-  quantified about Claude's environmental footprint from Anthropic's disclosures, the academic
-  literature, and third-party estimates. Appendix C carries bottom-up training bounds.
-- **`opus-researcher-footprint-brief.pdf`** (16 pp) — companion brief costing one heavy Opus
-  research session in CO₂ and water, with a signed audit of every excluded term. Section 5 reports
-  one user's measured usage, the only measured content in either document.
-
-The central finding is an absence: **Anthropic has published no first-party environmental data of
-any kind.** Every Claude-specific number in both documents is therefore third-party, and the
-credibility of each is assessed individually.
-
-Start with `HANDOFF.md` for project state and open threads, and `CLAUDE.md` for the working rules.
+The short version is that Anthropic has published no first-party environmental data of any kind, so
+every rate here is somebody else's estimate. That is why the dashboard shows bands rather than
+single numbers.
 
 ## License
 
@@ -94,12 +86,9 @@ with attribution. See `LICENSE`.
 ## Rebuild
 
 ```bash
-make            # both PDFs
-make report     # main report only
-make brief      # companion brief only
-make dashboard  # local dashboard on http://localhost:8765
-make figures    # regenerate all PNGs from sourced_data.json
-make clean      # remove generated PDFs (figures are kept)
+make dashboard    # local dashboard on http://localhost:8765
+make figures      # regenerate the sourced figures from data/sourced_data.json
+make provenance   # build PROVENANCE.md as a PDF (needs pandoc + xelatex)
 ```
 
 Scripts use paths relative to the project root — **run everything from here**, not from `figures/`.
@@ -134,15 +123,12 @@ matter if you don't have it.
 ## Layout
 
 ```
-├── report.md                    # main report source
-├── researcher_brief.md          # companion brief source
+├── PROVENANCE.md                # where every number comes from
 ├── data/sourced_data.json       # every plotted value + its source and credibility flag
 ├── data/avert_emission_rates_2023.xlsx   # EPA primary source, archived (sources move)
-├── make_figures.py              # figures 1–5 (main report)
-├── make_scenario_figure.py      # session figure (brief)
-├── scenario_calc.py             # session arithmetic; prints all permutations
+├── make_figures.py              # the five sourced figures
 ├── extract_avert.py             # re-derives AVERT marginal rates from the EPA workbook
-├── training_bounds.py           # derived training-energy bounds behind Appendix C
+├── training_bounds.py           # derived training-energy bounds behind PROVENANCE §7
 ├── extract_cambium.py           # re-derives NREL Cambium long-run marginal rates
 ├── dashboard.py                 # local dashboard server (stdlib only)
 ├── dashboard.html               # the three tabs
@@ -155,19 +141,6 @@ matter if you don't have it.
 ├── CLAUDE.md                    # project conventions
 └── HANDOFF.md                   # state, decisions, open threads
 ```
-
-## Changing the scenario
-
-`scenario_calc.py` is the fastest way to re-cost the researcher session under different assumptions
-— prompt count, output share, caching on/off, grid factor. Edit the constants at the top and run:
-
-```bash
-python3 scenario_calc.py
-```
-
-It prints every permutation plus carbon and water at four grid intensities. If you change the
-central case, update the numbers in `researcher_brief.md` Sections 0, 3, and 4 (they are written
-inline, not templated) and re-run `make brief`.
 
 ## Command line, without the dashboard
 
