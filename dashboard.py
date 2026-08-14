@@ -87,10 +87,11 @@ def collect():
 
 def label_for(value, labels, fallback=None):
     """Map a hostname or path onto a human name using glob patterns from sources.json.
-    Globs, not exact strings: a cluster's login node changes between sessions (tri-login01,
-    tri-login04, ...) and laptop hostnames follow whatever network they are on, so exact
-    matching would fragment one machine into several rows. Longest pattern wins, so a specific
-    rule beats a general one."""
+    Globs, not exact strings: a cluster's login node changes between sessions (the login node
+    rotates) and laptop hostnames follow whatever network they are on, so exact
+    matching would fragment one machine into several rows (login01, login04, login06 have all
+    appeared for one cluster in a week). Longest pattern wins, so a specific rule beats a
+    general one."""
     best = None
     for pat, name in (labels or {}).items():
         if fnmatch.fnmatch(value, pat) and (best is None or len(pat) > len(best[0])):

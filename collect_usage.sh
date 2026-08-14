@@ -4,8 +4,8 @@
 # the only way to get a figure that is not silently a lower bound.
 #
 #   ./collect_usage.sh                          # this machine only
-#   ./collect_usage.sh trillium                 # this machine + trillium
-#   ./collect_usage.sh trillium other-box       # ...and more
+#   ./collect_usage.sh cluster                 # this machine + a remote host
+#   ./collect_usage.sh cluster other-box       # ...and more
 #
 # Remote hosts need nothing but python3: the script is piped over stdin and run with --raw, which
 # applies no rates and reads no data files. Only token counts come back, never message content.

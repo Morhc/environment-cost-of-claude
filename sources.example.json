@@ -1,17 +1,17 @@
 {
-  "_comment": "Copy to sources.json. 'remote' lists SSH host aliases to collect from (local is always included). 'labels' maps glob patterns onto human names for machines and project paths - use globs, not exact strings, because cluster login nodes and laptop hostnames change between sessions. Longest matching pattern wins.",
+  "_comment": "Copy to sources.json. 'remote' lists SSH host aliases to collect from (local is always included). 'labels' maps glob patterns onto human names for machines and project paths. Use globs, not exact strings: cluster login nodes and laptop hostnames change between sessions, so exact matching would split one machine into a new row each login. Longest matching pattern wins.",
   "remote": [
-    "trillium"
+    "cluster"
   ],
   "labels": {
-    "tri-login*": "Trillium",
-    "*.wireless.example.edu": "Laptop",
-    "/scratch/*/mesa-*": "MESA runs",
+    "login*": "Cluster",
+    "*.wifi.example.edu": "Laptop",
+    "/scratch/*/simulations-*": "Simulations",
     "/Users/me/code/thing*": "Thing"
   },
   "_alternative_remote_form": [
     {
-      "host": "some-cluster",
+      "host": "other-box",
       "roots": [
         "/scratch/me/.claude/projects"
       ]

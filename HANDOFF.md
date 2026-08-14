@@ -127,8 +127,8 @@ individually.
 - **Usage measurement is now multi-source and operational** (`collect_usage.sh`). It runs
   `measure_usage.py --raw` locally and pipes the same script over SSH to named hosts (remote needs
   only python3; `--raw` reads no data files), then merges. For this user: laptop **308 kWh** +
-  Trillium **492 kWh** = **800 kWh / 279 kg CO₂e / ~700 driving miles** over 58 days, 104 sessions.
-  **62% of the total was on Trillium**, so every laptop-only figure quoted earlier was a 2.6×
+  the cluster **492 kWh** = **800 kWh / 279 kg CO₂e / ~700 driving miles** over 58 days, 104 sessions.
+  **62% of the total was on the cluster**, so every laptop-only figure quoted earlier was a 2.6×
   undercount. On the cluster the roots are `/home/$USER/.claude/projects` and
   `/scratch/$USER/.claude/projects`; `collect_usage.sh` discovers both and scopes them to
   `$USER`. The account name is deliberately not recorded here — it lives in the maintainer's
@@ -139,7 +139,7 @@ individually.
   paths are both wrong and not yours to read.
 - **Three path-layout traps, all found the hard way, all now handled in `scan()`:** nested
   subagent/workflow transcripts (22% of laptop energy), the older *flat* `projects/<session>.jsonl`
-  layout (all of Trillium scratch), and file mtime as a proxy for history span (29 days vs a true
+  layout (all of the cluster scratch), and file mtime as a proxy for history span (29 days vs a true
   47). Each one silently undercounted, and each undercount flattered the result.
 - **Watch the nesting.** Subagent and workflow transcripts live at
   `<project>/<session>/subagents/[workflows/<wf>/]agent-*.jsonl`. A first version of the tool

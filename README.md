@@ -30,16 +30,16 @@ Claude Code keeps transcripts per machine with **no central ledger**, so one mac
 large undercount. Copy `sources.example.json` to `sources.json` and list the hosts you use:
 
 ```json
-{ "remote": ["trillium", "some-other-box"] }
+{ "remote": ["cluster", "other-box"] }
 ```
 
 You can also give machines and projects real names instead of hostnames and paths:
 
 ```json
 {
-  "remote": ["trillium"],
+  "remote": ["cluster"],
   "labels": {
-    "tri-login*":              "Trillium",
+    "login*.cluster.edu":      "Cluster",
     "/scratch/*/mesa-*":       "ATS",
     "/Users/me/code/thing*":   "Thing"
   }
@@ -47,7 +47,7 @@ You can also give machines and projects real names instead of hostnames and path
 ```
 
 Patterns are globs, not exact strings, because cluster login nodes and laptop hostnames change
-between sessions — matching `tri-login06` exactly would split one machine into a new row every
+between sessions — matching `login06` exactly would split one machine into a new row every
 time you log in. The longest matching pattern wins, so a specific rule beats a general one, and
 the real host or path stays visible underneath the label.
 
@@ -193,8 +193,8 @@ the total, which lived on an HPC login node. Use the collector:
 
 ```bash
 ./collect_usage.sh                    # this machine only
-./collect_usage.sh trillium           # this machine + a remote host
-./collect_usage.sh trillium other-box # ...and more
+./collect_usage.sh cluster           # this machine + a remote host
+./collect_usage.sh cluster other-box # ...and more
 ```
 
 Remote hosts need nothing but `python3` — the script is piped over stdin and run with `--raw`,

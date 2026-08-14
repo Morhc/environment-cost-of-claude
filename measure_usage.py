@@ -10,7 +10,7 @@ Reads ONLY the usage counters on assistant messages. No message content is opene
 Claude Code stores transcripts per-machine with no central ledger, so one run is a LOWER BOUND.
 For a real personal total, collect from every machine and merge:
 
-    ./collect_usage.sh trillium                   # does all of the below for you
+    ./collect_usage.sh cluster                   # does all of the below for you
 
     # or by hand:
     python3 measure_usage.py --raw > local.json
@@ -63,7 +63,7 @@ def scan(roots, project_filter=None):
 
     Two path layouts exist and both must be handled -- missing either silently undercounts:
       <project>/<session>.jsonl                      current layout
-      <session>.jsonl                                older flat layout (seen on Trillium scratch)
+      <session>.jsonl                                older flat layout (seen on cluster scratch)
     and subagent/workflow transcripts nest one or more levels deeper under
       <project>/<session>/subagents/[workflows/<wf>/]agent-*.jsonl
     Those carry real token spend and roll into their parent session.
