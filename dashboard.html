@@ -68,6 +68,7 @@
   #chart .cur{stroke:var(--blue);fill:none;stroke-width:2;stroke-linejoin:round}
   #chart .cum{stroke:var(--orange);fill:none;stroke-width:2;stroke-linejoin:round}
   #chart .area{fill:var(--blue);opacity:.13}
+  #chart .cumband{fill:var(--orange);opacity:.12}
   #chart .hit{fill:transparent}
   #chart .mark{stroke:var(--ink2);stroke-width:1;stroke-dasharray:3 3}
   [hidden]{display:none !important}
@@ -253,16 +254,20 @@ function chart() {
   }
   const W = 900, H = 560, L = 84, R = 90, T = 58, B = 46;
   const day = S.map(d => d.kwh * conv), cum = S.map(d => d.cum * conv);
-  const maxD = Math.max(...day, 1e-9) * 2, maxC = Math.max(...cum, 1e-9);
+  const maxD = Math.max(...day, 1e-9) * 2, maxC = Math.max(...cum, 1e-9) * 2;
   const x = i => L + i * (W - L - R) / Math.max(S.length - 1, 1);
   const yD = v => H - B - (v / maxD) * (H - B - T);
   const yC = v => H - B - (v / maxC) * (H - B - T);
   const line = (arr, y) => arr.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' +
                                               y(v).toFixed(1)).join(' ');
-  // The x/÷2 band is the low end of the 2-4x method uncertainty on the per-token rates.
-  const band = day.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${yD(v * 2).toFixed(1)}`)
-      .join(' ') + ' ' + day.map((v, i) => `L${x(day.length - 1 - i).toFixed(1)} ` +
-      `${yD(day[day.length - 1 - i] / 2).toFixed(1)}`).join(' ') + ' Z';
+  // The rate uncertainty is multiplicative, so it applies to the running total exactly as it
+  // does to each day: halve and double the whole curve. Drawn on both so the total is never
+  // read as more certain than the daily values it is made of.
+  const envelope = (arr, y) =>
+    arr.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v * 2).toFixed(1)}`).join(' ') +
+    ' ' + arr.map((v, i) => `L${x(arr.length - 1 - i).toFixed(1)} ` +
+        `${y(arr[arr.length - 1 - i] / 2).toFixed(1)}`).join(' ') + ' Z';
+  const band = envelope(day, yD), cband = envelope(cum, yC);
   const fm = v => fmt(v, v < 10 ? (v < 1 ? 2 : 1) : 0);
   // Water is two different things with one number. On-site cooling is what a data centre
   // evaporates; the rest evaporates at the power stations feeding it. Corporate figures usually
@@ -293,6 +298,7 @@ function chart() {
     <text x="${W - R + 10}" y="46">${unit}</text>
     ${ticks}${xlab}
     <path class="area" d="${band}"/>
+    <path class="area cumband" d="${cband}"/>
     ${METRIC === 'water' ? wsplit : ''}
     <path class="cur" d="${line(day, yD)}"/>
     <path class="cum" d="${line(cum, yC)}"/>
@@ -307,8 +313,9 @@ function chart() {
     hov.innerHTML = `<line class="mark" x1="${x(i)}" y1="${T}" x2="${x(i)}" y2="${H - B}"/>` +
       `<circle cx="${x(i)}" cy="${yD(day[i])}" r="4" fill="var(--blue)"/>` +
       `<circle cx="${x(i)}" cy="${yC(cum[i])}" r="4" fill="var(--orange)"/>`;
-    tip.textContent = `${S[i].date} — ${fm(day[i])} ${unit} that day (band ` +
-                      `${fm(day[i] / 2)}\u2013${fm(day[i] * 2)}) · ${fm(cum[i])} ${unit} total`;
+    tip.textContent = `${S[i].date} — ${fm(day[i])} ${unit} that day ` +
+                      `(${fm(day[i] / 2)}\u2013${fm(day[i] * 2)}) · total ${fm(cum[i])} ` +
+                      `(${fm(cum[i] / 2)}\u2013${fm(cum[i] * 2)})`;
     tip.style.opacity = 1;
     tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 10) + 'px';
     tip.style.top = (e.clientY + 18) + 'px';
@@ -322,8 +329,10 @@ function chart() {
          <span><span class="sw" style="background:var(--blue-l)"></span>power-plant</span>` : '');
   const active = S.filter(d => d.kwh > 0).length;
   $('#chartfoot').textContent =
-    `${S.length} days, ${active} with activity · shaded band is the \u00d7/\u00f72 method ` +
-    `uncertainty on the per-token rates · binned in your local timezone`;
+    `${S.length} days, ${active} with activity · both shaded bands are the \u00d7/\u00f72 method ` +
+    `uncertainty on the per-token rates, which compounds into the total rather than averaging ` +
+    `out${METRIC === 'co2' ? '. Choosing a different grid convention moves the total further ' +
+    'than this band does' : ''} · binned in your local timezone`;
 }
 
 
