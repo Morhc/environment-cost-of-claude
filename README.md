@@ -17,9 +17,10 @@ collection on demand:
 
 | Tab | Shows |
 |:---|:---|
-| **Environmental cost** | Energy, CO₂ and water, switchable between real units and everyday equivalents (km driven, long-haul flights, tree-seedlings, showers, flushes). Any of 15 grid accounting conventions. |
+| **Environmental cost** | Energy, CO₂ and water with a live chart — daily value, running total, and the ×/÷2 rate-uncertainty band. Switchable between real units and everyday equivalents (km driven, long-haul flights, showers). Water splits into on-site cooling and power-plant evaporation. Any of 15 grid accounting conventions. |
 | **Sources** | How much came from each machine, with the transcript roots it read. |
 | **Projects** | Every project taking 5% or more of the total, and the directory it lives in. |
+| **Habits** | When you work by day and hour, total tokens processed, session lengths, and how often context compaction fires and at what size. |
 
 Stdlib Python only — no install step, no dependencies, works anywhere `python3` runs.
 

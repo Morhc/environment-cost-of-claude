@@ -91,6 +91,7 @@
   <button role="tab" aria-selected="true" data-tab="cost">Environmental cost</button>
   <button role="tab" aria-selected="false" data-tab="sources">Sources</button>
   <button role="tab" aria-selected="false" data-tab="projects">Projects</button>
+  <button role="tab" aria-selected="false" data-tab="habits">Habits</button>
 </nav>
 
 <main>
@@ -116,13 +117,10 @@
         <button data-m="water" aria-pressed="false">Water</button>
       </span>
       <span class="spacer"></span>
-      <span class="legend" style="margin:0">
-        <span><span class="sw" style="background:var(--blue)"></span>per day</span>
-        <span><span class="sw" style="background:var(--orange)"></span>cumulative</span>
-      </span>
+      <span class="legend" style="margin:0" id="chartlegend"></span>
     </div>
-    <svg id="chart" viewBox="0 0 900 300" preserveAspectRatio="none"
-         style="width:100%;height:300px"></svg>
+    <svg id="chart" viewBox="0 0 900 430" preserveAspectRatio="none"
+         style="width:100%;height:430px"></svg>
     <div class="sub" id="chartfoot" style="margin-top:2px"></div>
 
     <div class="note" id="costnote"></div>
@@ -145,6 +143,20 @@
     <div class="scroll"><table id="projtable"></table></div>
     <div class="note" id="projnote"></div>
   </section>
+
+  <section id="habits" hidden>
+    <div class="tiles" id="htiles"></div>
+
+    <div class="row" style="margin-top:24px"><strong style="font-size:14px">When you work</strong></div>
+    <div class="scroll"><table id="dowtable"></table></div>
+    <div style="height:14px"></div>
+    <div class="scroll"><table id="hourtable"></table></div>
+
+    <div class="row" style="margin-top:24px"><strong style="font-size:14px">Compaction</strong></div>
+    <div id="compact"></div>
+
+    <div class="note" id="habitnote"></div>
+  </section>
 </main>
 <div id="tip"></div>
 
@@ -160,7 +172,7 @@ const pct = x => (x * 100).toFixed(1) + '%';
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x =>
     x.setAttribute('aria-selected', x === b));
-  ['cost', 'sources', 'projects'].forEach(id => $('#' + id).hidden = (id !== b.dataset.tab));
+  ['cost', 'sources', 'projects', 'habits'].forEach(id => $('#' + id).hidden = (id !== b.dataset.tab));
 });
 
 // ---- hover tooltips ---------------------------------------------------------------------
@@ -214,33 +226,64 @@ function dailySeries() {
 function chart() {
   const svg = $('#chart'), S = dailySeries();
   if (!S.length) { svg.innerHTML = ''; return; }
-  const g = +$('#grid').value;
-  const conv = METRIC === 'energy' ? 1 : METRIC === 'co2' ? g / 1000 : D.water.total_l_per_kwh;
-  const unit = METRIC === 'energy' ? 'kWh' : METRIC === 'co2' ? 'kg CO\u2082' : 'L';
-  const W = 900, H = 300, L = 54, R = 54, T = 14, B = 26;
+  const g = +$('#grid').value, eq = D.equivalences, equiv = $('#mode').value === 'equiv';
+  // Base conversion from kWh into the selected metric, then optionally into everyday units so
+  // the chart says the same thing as the tiles above it.
+  let conv, unit;
+  if (METRIC === 'energy') {
+    conv = equiv ? eq.energy.household_days_per_kwh : 1;
+    unit = equiv ? 'household-days' : 'kWh';
+  } else if (METRIC === 'co2') {
+    conv = g / 1000 * (equiv ? eq.co2.miles_driven_per_kg * 1.609 : 1);
+    unit = equiv ? 'km driven' : 'kg CO\u2082';
+  } else {
+    conv = D.water.total_l_per_kwh / (equiv ? eq.water.litres_per_shower : 1);
+    unit = equiv ? 'showers' : 'L';
+  }
+  const W = 900, H = 430, L = 70, R = 74, T = 40, B = 30;
   const day = S.map(d => d.kwh * conv), cum = S.map(d => d.cum * conv);
-  const maxD = Math.max(...day, 1e-9), maxC = Math.max(...cum, 1e-9);
+  const maxD = Math.max(...day, 1e-9) * 2, maxC = Math.max(...cum, 1e-9);
   const x = i => L + i * (W - L - R) / Math.max(S.length - 1, 1);
   const yD = v => H - B - (v / maxD) * (H - B - T);
   const yC = v => H - B - (v / maxC) * (H - B - T);
   const line = (arr, y) => arr.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' +
                                               y(v).toFixed(1)).join(' ');
-  const area = line(day, yD) + ` L${x(S.length - 1).toFixed(1)} ${H - B} L${L} ${H - B} Z`;
-  const ticks = [0, 0.5, 1].map(f =>
-    `<text x="${L - 8}" y="${(yD(maxD * f) + 4).toFixed(1)}" text-anchor="end">` +
-    `${fmt(maxD * f, maxD < 10 ? 1 : 0)}</text>` +
-    `<text x="${W - R + 8}" y="${(yC(maxC * f) + 4).toFixed(1)}">${fmt(maxC * f, 0)}</text>`).join('');
-  const every = Math.ceil(S.length / 7);
+  // The x/÷2 band is the low end of the 2-4x method uncertainty on the per-token rates.
+  const band = day.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${yD(v * 2).toFixed(1)}`)
+      .join(' ') + ' ' + day.map((v, i) => `L${x(day.length - 1 - i).toFixed(1)} ` +
+      `${yD(day[day.length - 1 - i] / 2).toFixed(1)}`).join(' ') + ' Z';
+  const fm = v => fmt(v, v < 10 ? (v < 1 ? 2 : 1) : 0);
+  // Water is two different things with one number. On-site cooling is what a data centre
+  // evaporates; the rest evaporates at the power stations feeding it. Corporate figures usually
+  // report only the first, which is why published water numbers disagree by orders of magnitude.
+  let wsplit = '';
+  if (METRIC === 'water') {
+    const frac = D.water.on_site_l_per_kwh / D.water.total_l_per_kwh;
+    const on = cum.map(v => v * frac);
+    const areaTo = (arr, base) => arr.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ` +
+        `${yC(v).toFixed(1)}`).join(' ') +
+      ' ' + base.map((v, i) => `L${x(base.length - 1 - i).toFixed(1)} ` +
+        `${yC(base[base.length - 1 - i]).toFixed(1)}`).join(' ') + ' Z';
+    wsplit = `<path d="${areaTo(cum, on)}" fill="var(--blue-l)" opacity=".55"/>` +
+             `<path d="${areaTo(on, on.map(() => 0))}" fill="var(--blue-d)" opacity=".8"/>`;
+  }
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map(f =>
+    `<line class="axis" x1="${L}" y1="${yD(maxD * f).toFixed(1)}" x2="${W - R}"
+           y2="${yD(maxD * f).toFixed(1)}" opacity=".55"/>` +
+    `<text x="${L - 9}" y="${(yD(maxD * f) + 4).toFixed(1)}" text-anchor="end">${fm(maxD * f)}</text>` +
+    `<text x="${W - R + 9}" y="${(yC(maxC * f) + 4).toFixed(1)}">${fm(maxC * f)}</text>`).join('');
+  const every = Math.ceil(S.length / 8);
   const xlab = S.map((d, i) => i % every ? '' :
-    `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${d.date.slice(5)}</text>`).join('');
+    `<text x="${x(i).toFixed(1)}" y="${H - 9}" text-anchor="middle">${d.date.slice(5)}</text>`).join('');
   svg.innerHTML = `
-    <line class="axis" x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}"/>
+    <text x="${L - 9}" y="20" text-anchor="end" style="font-weight:600;fill:var(--blue)">per day</text>
+    <text x="${W - R + 9}" y="20" style="font-weight:600;fill:var(--orange)">cumulative</text>
+    <text x="${L}" y="20" style="fill:var(--ink2)">${unit}</text>
     ${ticks}${xlab}
-    <path class="area" d="${area}"/>
+    <path class="area" d="${band}"/>
+    ${METRIC === 'water' ? wsplit : ''}
     <path class="cur" d="${line(day, yD)}"/>
     <path class="cum" d="${line(cum, yC)}"/>
-    <text x="${L - 8}" y="${T + 2}" text-anchor="end" style="font-weight:600">per day</text>
-    <text x="${W - R + 8}" y="${T + 2}" style="font-weight:600">total</text>
     <g id="hover"></g>
     <rect class="hit" x="${L}" y="0" width="${W - L - R}" height="${H}"/>`;
   const hit = svg.querySelector('.hit'), hov = svg.querySelector('#hover');
@@ -252,17 +295,102 @@ function chart() {
     hov.innerHTML = `<line class="mark" x1="${x(i)}" y1="${T}" x2="${x(i)}" y2="${H - B}"/>` +
       `<circle cx="${x(i)}" cy="${yD(day[i])}" r="4" fill="var(--blue)"/>` +
       `<circle cx="${x(i)}" cy="${yC(cum[i])}" r="4" fill="var(--orange)"/>`;
-    tip.textContent = `${S[i].date} — ${fmt(day[i], 2)} ${unit} that day · ` +
-                      `${fmt(cum[i], 1)} ${unit} cumulative`;
+    tip.textContent = `${S[i].date} — ${fm(day[i])} ${unit} that day (band ` +
+                      `${fm(day[i] / 2)}\u2013${fm(day[i] * 2)}) · ${fm(cum[i])} ${unit} total`;
     tip.style.opacity = 1;
     tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 10) + 'px';
     tip.style.top = (e.clientY + 18) + 'px';
   };
   hit.onmouseleave = () => { hov.innerHTML = ''; tip.style.opacity = 0; };
+  $('#chartlegend').innerHTML =
+    `<span><span class="sw" style="background:var(--blue)"></span>per day</span>
+     <span><span class="sw" style="background:var(--orange)"></span>cumulative</span>` +
+    (METRIC === 'water'
+      ? `<span><span class="sw" style="background:var(--blue-d)"></span>on-site cooling</span>
+         <span><span class="sw" style="background:var(--blue-l)"></span>power-plant</span>` : '');
   const active = S.filter(d => d.kwh > 0).length;
   $('#chartfoot').textContent =
-    `${S.length} days, ${active} with activity · left axis per day, right axis cumulative · ` +
-    `binned in your local timezone from UTC transcripts`;
+    `${S.length} days, ${active} with activity · shaded band is the \u00d7/\u00f72 method ` +
+    `uncertainty on the per-token rates · binned in your local timezone`;
+}
+
+
+// ---- habits -----------------------------------------------------------------------------
+const DOW = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+function habits() {
+  const r = D.rates_wh_per_token, T = D.totals.tokens;
+  const dow = Array(7).fill(0), hod = Array(24).fill(0);
+  for (const [k, v] of Object.entries(D.hourly || {})) {
+    const d = new Date(Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10),
+                                +k.slice(11, 13)));
+    const kwh = (v[0] * r.fresh + v[1] * r.cached + v[2] * r.out) / 1000;
+    dow[(d.getDay() + 6) % 7] += kwh;                      // JS weeks start Sunday; shift to Mon
+    hod[d.getHours()] += kwh;
+  }
+  const tot = dow.reduce((a, b) => a + b, 0) || 1;
+  const peakDay = DOW[dow.indexOf(Math.max(...dow))];
+  const peakHour = hod.indexOf(Math.max(...hod));
+  const weekend = (dow[5] + dow[6]) / tot;
+
+  const S = D.session_list || [];
+  const durs = S.map(s => s.first && s.last
+    ? (new Date(s.last) - new Date(s.first)) / 3.6e6 : 0).filter(x => x > 0).sort((a, b) => a - b);
+  const med = durs.length ? durs[Math.floor(durs.length / 2)] : 0;
+  const allTok = T.fresh + T.cached + T.out;
+  const C = D.compactions || [];
+  const pre = C.map(c => c.pre).filter(Boolean);
+  const meanPre = pre.length ? pre.reduce((a, b) => a + b, 0) / pre.length : 0;
+  const auto = C.filter(c => c.trigger === 'auto').length;
+
+  $('#htiles').innerHTML = [
+    ['Tokens processed', fmt(allTok / 1e6, 0) + ' M',
+      `${fmt(T.fresh / 1e6, 1)} M fresh · ${fmt(T.cached / 1e6, 0)} M cached · ` +
+      `${fmt(T.out / 1e6, 1)} M written`],
+    ['Busiest day', peakDay, `${pct(dow[DOW.indexOf(peakDay)] / tot)} of all energy · ` +
+      `weekends are ${pct(weekend)}`],
+    ['Peak hour', `${String(peakHour).padStart(2, '0')}:00`,
+      `local time · ${pct(hod.slice(9, 18).reduce((a, b) => a + b, 0) / tot)} of work falls ` +
+      `in 09:00–18:00`],
+    ['Sessions', fmt(S.length), `median ${med.toFixed(1)} h wall-clock · ` +
+      `${fmt(D.totals.messages / Math.max(S.length, 1), 0)} assistant messages each`],
+  ].map(([l, v, sub]) => `<div class="tile"><div class="lab">${l}</div><div class="val">${v}</div>
+       <div class="sub2">${sub}</div></div>`).join('');
+
+  const barrow = (label, val, max, extra) =>
+    `<tr data-tip="${extra}"><td style="width:34%">${label}</td>
+     <td class="n">${fmt(val, 1)} kWh</td><td class="n">${pct(val / tot)}</td>
+     <td><div class="barwrap"><div class="bar" style="width:${(val / max * 100).toFixed(1)}%">
+     </div></div></td></tr>`;
+  const maxD = Math.max(...dow), maxH = Math.max(...hod);
+  $('#dowtable').innerHTML = '<thead><tr><th>Day of week</th><th class="n">Energy</th>' +
+    '<th class="n">Share</th><th style="width:38%"></th></tr></thead><tbody>' +
+    DOW.map((d, i) => barrow(d, dow[i], maxD, `${d}: ${fmt(dow[i], 1)} kWh`)).join('') + '</tbody>';
+  $('#hourtable').innerHTML = '<thead><tr><th>Hour (local)</th><th class="n">Energy</th>' +
+    '<th class="n">Share</th><th style="width:38%"></th></tr></thead><tbody>' +
+    hod.map((v, h) => v <= 0 ? '' : barrow(String(h).padStart(2, '0') + ':00', v, maxH,
+      `${h}:00 local`)).join('') + '</tbody>';
+
+  $('#compact').innerHTML = C.length ? `
+    <div class="tiles">
+      <div class="tile"><div class="lab">Compactions</div><div class="val">${C.length}</div>
+        <div class="sub2">${auto} automatic · ${C.length - auto} manual</div></div>
+      <div class="tile"><div class="lab">Typical trigger point</div>
+        <div class="val">${fmt(meanPre / 1000, 0)}k</div>
+        <div class="sub2">tokens of context when compaction fires</div></div>
+      <div class="tile"><div class="lab">Context reclaimed</div>
+        <div class="val">${pct(1 - (C.reduce((a, c) => a + (c.post || 0), 0) /
+                                    Math.max(C.reduce((a, c) => a + (c.pre || 0), 0), 1)))}</div>
+        <div class="sub2">mean shrink per compaction</div></div>
+    </div>` : '<div class="sub">No compaction events recorded.</div>';
+
+  $('#habitnote').innerHTML =
+    `Times are your browser's local zone, converted from UTC transcript stamps, so work done on a
+     cluster in another zone still lands on your wall clock. Energy is used as the activity
+     measure rather than message count because it weights long-context turns properly — an hour
+     spent re-reading a large conversation costs far more than an hour of short exchanges.
+     ${C.length ? `Compaction fires at around ${fmt(meanPre / 1000, 0)}k tokens on average, which
+     is where a conversation stops growing and starts being rewritten.` : ''}`;
 }
 
 // ---- rendering --------------------------------------------------------------------------
@@ -274,8 +402,8 @@ function tiles() {
     ['Energy', fmt(kwh, 1) + ' kWh', `${fmt(D.totals.sessions)} sessions · ` +
       `${fmt(D.totals.messages)} assistant messages`],
     ['CO₂', fmt(co2, 1) + ' kg', `at ${$('#grid').selectedOptions[0].textContent}`],
-    ['Water', fmt(wTot, 0) + ' L', `${fmt(wOn, 0)} L on-site cooling; the rest evaporates at the ` +
-      `power plants`],
+    ['Water', fmt(wTot, 0) + ' L',
+      `${fmt(wOn, 0)} L on-site cooling + ${fmt(wTot - wOn, 0)} L evaporated at the power plants`],
   ];
   const equiv = [
     ['Energy', fmt(kwh * eq.energy.household_days_per_kwh, 1) + ' household-days',
@@ -285,8 +413,8 @@ function tiles() {
       `long-haul flights · ${fmt(co2 * eq.co2.tree_seedlings_10yr_per_kg, 1)} tree-seedlings ` +
       `grown 10 years`],
     ['Water', fmt(wTot / eq.water.litres_per_shower, 0) + ' showers',
-      `or ${fmt(wTot / eq.water.litres_per_toilet_flush, 0)} toilet flushes · ` +
-      `${fmt(wTot / eq.water.litres_per_bottle, 0)} half-litre bottles`],
+      `${fmt(wOn / eq.water.litres_per_shower, 1)} from on-site cooling, the rest at the power ` +
+      `plants · ${fmt(wTot / eq.water.litres_per_toilet_flush, 0)} toilet flushes`],
   ];
   const rows = $('#mode').value === 'real' ? real : equiv;
   $('#tiles').innerHTML = rows.map(([l, v, s]) =>
@@ -331,6 +459,7 @@ function render() {
   }
   tiles();
   chart();
+  habits();
 
   const g = +$('#grid').value;
   bartable($('#srctable'), D.sources.map(s => ({
@@ -395,7 +524,7 @@ async function load(url) {
 
 $('#refresh').onclick = () => load('/api/refresh');
 $('#grid').onchange = render;
-$('#mode').onchange = tiles;
+$('#mode').onchange = () => { tiles(); chart(); };
 load('/api/data');
 </script>
 </body>

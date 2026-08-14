@@ -73,6 +73,7 @@ def scan(roots, project_filter=None):
     # regardless of the host's own timezone, so a laptop on PST and a cluster on EST are already
     # on one clock -- the timezone is only ever a display choice, applied at report time.
     hourly = {}
+    weekly = {}
     for root in roots:
         root = os.path.expanduser(root)
         if not os.path.isdir(root):
@@ -88,18 +89,26 @@ def scan(roots, project_filter=None):
             f = c = o = m = 0
             first = last = None
             cwd = None
+            by_cwd = {}
+            compactions = []
             for line in open(path, errors="replace"):
                 try:
                     d = json.loads(line)
                 except Exception:
                     continue
                 # The directory name encodes the working directory but is lossy: "/", "." and "_"
-                # all become "-", so it cannot be inverted. The records carry the real path.
-                if cwd is None and d.get("cwd"):
+                # all become "-", so it cannot be inverted. The records carry the real path, and
+                # it CHANGES mid-session when you cd, so tokens follow the cwd in effect at each
+                # message rather than whatever the session happened to start in.
+                if d.get("cwd"):
                     cwd = d["cwd"]
                 if ts := d.get("timestamp"):
                     first = min(first or ts, ts)
                     last = max(last or ts, ts)
+                if cm := d.get("compactMetadata"):
+                    compactions.append({"at": d.get("timestamp"), "trigger": cm.get("trigger"),
+                                        "pre": cm.get("preTokens"), "post": cm.get("postTokens"),
+                                        "cwd": cwd})
                 if d.get("type") != "assistant":
                     continue
                 u = (d.get("message") or {}).get("usage")
@@ -110,17 +119,28 @@ def scan(roots, project_filter=None):
                 mc = u.get("cache_read_input_tokens") or 0
                 mo = u.get("output_tokens") or 0
                 f += mf; c += mc; o += mo; m += 1
+                k = cwd or "(unknown)"
+                b = by_cwd.setdefault(k, [0, 0, 0, 0])
+                b[0] += mf; b[1] += mc; b[2] += mo; b[3] += 1
                 if ts:
                     h = hourly.setdefault(ts[:13], [0, 0, 0])   # "YYYY-MM-DDTHH" in UTC
                     h[0] += mf; h[1] += mc; h[2] += mo
+                    dow = weekly.setdefault(ts[:13], [0, 0, 0])
+                    dow[0] += mf; dow[1] += mc; dow[2] += mo
             if not m:
                 continue
             s = agg.setdefault((root, project, session),
-                               dict(project=project, root=root, cwd=cwd, fresh=0, cached=0,
-                                    out=0, msgs=0, subagents=0, first=first, last=last))
+                               dict(project=project, root=root, cwd=cwd, fresh=0,
+                                    cached=0, out=0, msgs=0, subagents=0, first=first,
+                                    last=last, by_cwd={}, compactions=[]))
             s["fresh"] += f; s["cached"] += c; s["out"] += o; s["msgs"] += m
             s["subagents"] += len(parts) > 2
             s["cwd"] = s.get("cwd") or cwd
+            for k, v in by_cwd.items():
+                t = s["by_cwd"].setdefault(k, [0, 0, 0, 0])
+                for i in range(4):
+                    t[i] += v[i]
+            s["compactions"] += compactions
             if first: s["first"] = min(s["first"] or first, first)
             if last: s["last"] = max(s["last"] or last, last)
     return list(agg.values()), hourly

@@ -148,17 +148,27 @@ def build(raws, errors, labels=None):
                     stamps.append(t)
 
     total_wh = sum(s["wh"] for s in sessions) or 1e-9
-    per_project = {}
+
+    # Projects are keyed on the working directory in effect at each message, not on the session's
+    # first cwd: 14 of 37 home-directory sessions here changed directory partway through, which
+    # made "/Users/<me>" look like one huge project when it was really a launch point for many.
+    per_project, compactions = {}, []
     for s in sessions:
-        key = label_for(pretty_project(s["project"], s.get("cwd")), labels,
-                        (s["source"], s["project"]))
-        path = pretty_project(s["project"], s.get("cwd"))
-        p = per_project.setdefault(key, dict(project=label_for(path, labels, path), path=path,
-                                             raw_name=s["project"],
-                                             source=label_for(s["source"], labels),
-                                             root=s.get("root", ""), wh=0.0, sessions=0,
-                                             messages=0))
-        p["wh"] += s["wh"]; p["sessions"] += 1; p["messages"] += s["msgs"]
+        for c in (s.get("compactions") or []):
+            compactions.append(dict(c, source=s["source"]))
+        buckets = s.get("by_cwd") or {(s.get("cwd") or s["project"]): [s["fresh"], s["cached"],
+                                                                      s["out"], s["msgs"]]}
+        for path, v in buckets.items():
+            name = label_for(path, labels, path)
+            p = per_project.setdefault(name, dict(project=name, path=path, source=s["source"],
+                                                  wh=0.0, sessions=0, messages=0, paths=set()))
+            p["wh"] += v[0] * R_IN + v[1] * R_CACHE + v[2] * R_OUT
+            p["messages"] += v[3]
+            p["sessions"] += 1
+            p["paths"].add(path)
+    for p in per_project.values():
+        paths = sorted(p.pop("paths"))
+        p["path"] = paths[0] if len(paths) == 1 else f"{paths[0]}  (+{len(paths) - 1} more)"
 
     projects = sorted(per_project.values(), key=lambda p: -p["wh"])
     for p in projects:
@@ -185,6 +195,12 @@ def build(raws, errors, labels=None):
         "equivalences": D["equivalences"],
         "sources": sources,
         "projects": projects,
+        "compactions": sorted(compactions, key=lambda c: c.get("at") or ""),
+        "session_list": [{"wh": s["wh"], "msgs": s["msgs"], "first": s.get("first"),
+                          "last": s.get("last"), "source": s["source"],
+                          "project": label_for(s.get("cwd") or s["project"], labels,
+                                               s.get("cwd") or s["project"])}
+                         for s in sessions],
         "threshold": 0.05,
     }
 
