@@ -17,6 +17,11 @@ numbers are ground truth. `measure_usage.py` reads them and nothing else — nev
 Every figure below them — energy, CO₂, water — is that measurement multiplied by a rate somebody
 else estimated. The rates are the weak link, and they are weak for one reason.
 
+**What the reader is trusted with.** `measure_usage.py` reads five fields per record: timestamp,
+working directory, record type, compaction metadata, and the four token counters. It never opens
+message content. Nothing is transmitted; remote collection runs over your own SSH and returns
+counts. The dashboard is loopback-only and serves three endpoints.
+
 ## 2. Why third-party rates at all
 
 **Anthropic has published no first-party environmental data of any kind.** No sustainability

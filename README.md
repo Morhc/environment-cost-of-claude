@@ -33,6 +33,13 @@ large undercount. Copy `sources.example.json` to `sources.json` and list the hos
 { "remote": ["cluster", "other-box"] }
 ```
 
+**To find out what to name**, ask the tool — it lists every working directory it found, largest
+first, already formatted as a labels block:
+
+```bash
+python3 measure_usage.py --list-projects
+```
+
 You can also give machines and projects real names instead of hostnames and paths:
 
 ```json
@@ -57,6 +64,27 @@ collector is piped to them over stdin. Transcript roots are auto-discovered and 
 cluster. Only token counts come back. No message content is read, and nothing leaves your machines.
 
 Cloud sessions are never written to local disk and cannot be collected at all.
+
+## What it reads, and what it exposes
+
+`measure_usage.py` opens transcript files and reads exactly five things per record: the timestamp,
+the working directory, the record type, the compaction metadata, and the four token counters on
+assistant messages. **It never reads message content** — not prompts, not responses, not tool
+output. You can verify that in one grep: the only fields it touches are `timestamp`, `cwd`,
+`type`, `compactMetadata` and `message.usage`.
+
+Nothing is uploaded anywhere. The only outbound network calls in the repo are in
+`extract_avert.py` and `extract_cambium.py`, which *download* public spreadsheets from EPA and
+NREL. Remote collection runs over your own SSH and returns token counts only.
+
+The dashboard binds to `127.0.0.1` and serves exactly three endpoints — the page itself and two
+JSON APIs. It will not hand out any other file in the directory, and it rejects requests whose
+`Host` header is not loopback, which blocks a hostile web page from reaching it by resolving its
+own domain to `127.0.0.1`.
+
+Two files stay on your disk and out of git: `sources.json` (your machine names) and
+`data/usage_cache.json` (every directory you have worked in). Both are in `.gitignore`. If you
+fork this repo, check they are still ignored before pushing.
 
 ## What is measured and what is not
 

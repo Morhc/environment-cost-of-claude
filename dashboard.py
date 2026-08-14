@@ -215,23 +215,55 @@ def refresh():
     return data
 
 
-class Handler(http.server.SimpleHTTPRequestHandler):
+class Handler(http.server.BaseHTTPRequestHandler):
+    """Serves exactly three things and nothing else.
+
+    An earlier version subclassed SimpleHTTPRequestHandler after chdir'ing into the repo, which
+    quietly published every file in it -- sources.json (machine names, colleagues' paths) and
+    data/usage_cache.json (every directory you have worked in) included. Loopback-only, but there
+    is no reason for those to be reachable over HTTP at all, so this whitelists instead.
+    """
+
+    ALLOWED = {"/", "/index.html", "/api/data", "/api/refresh", "/api/config"}
+
     def log_message(self, *args):
         pass
+
+    def _local_only(self):
+        """Reject anything not addressed to loopback. The socket is already bound to 127.0.0.1;
+        this additionally blocks DNS-rebinding, where a hostile page resolves its own domain to
+        127.0.0.1 and talks to this server from inside your browser."""
+        host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]")
+        return host in ("localhost", "127.0.0.1", "::1", "")
 
     def _send(self, obj, code=200):
         body = json.dumps(obj).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_html(self):
+        body = open("dashboard.html", "rb").read()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
+        if not self._local_only():
+            self.send_error(403, "local requests only")
+            return
+        if path not in self.ALLOWED:
+            self.send_error(404, "not found")
+            return
         if path in ("/", "/index.html"):
-            self.path = "/dashboard.html"
-            return super().do_GET()
+            return self._send_html()
         if path == "/api/data":
             if os.path.exists(CACHE):
                 return self._send(json.load(open(CACHE)))
@@ -242,8 +274,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._send({"error": str(e)}, 500)
         if path == "/api/config":
-            return self._send(load_config())
-        return super().do_GET()
+            # config without the machine list: the browser only needs the labels
+            return self._send({"labels": load_config().get("labels", {})})
 
 
 if __name__ == "__main__":

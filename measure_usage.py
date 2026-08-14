@@ -44,6 +44,9 @@ ap.add_argument("--raw", action="store_true", help="emit token counts as JSON; a
                 "and reads no data files, so it can be piped to a remote host")
 ap.add_argument("--merge", nargs="+", metavar="FILE", help="combine --raw JSON files and report")
 ap.add_argument("--list-grids", action="store_true", help="print all conventions and exit")
+ap.add_argument("--list-projects", action="store_true",
+                help="print every working directory found, largest first, as a labels block "
+                     "ready to paste into sources.json")
 ap.add_argument("--by", choices=["day", "week", "month", "hour", "dow"],
                 help="also print a time series: calendar bins, or hour-of-day / day-of-week "
                      "profiles")
@@ -166,6 +169,25 @@ if a.list_grids:
     _, G = rates_and_grids()
     for k, v in sorted(G.items(), key=lambda kv: kv[1]):
         print(f"  {k:<34} {v:6.1f} gCO2/kWh")
+    raise SystemExit
+
+if a.list_projects:
+    (R_IN, R_CACHE, R_OUT), _ = rates_and_grids()
+    found, _ = scan(a.root or ["~/.claude/projects"], a.project)
+    by = {}
+    for s_ in found:
+        for path, v in (s_.get("by_cwd") or {}).items():
+            by[path] = by.get(path, 0.0) + v[0] * R_IN + v[1] * R_CACHE + v[2] * R_OUT
+    tot = sum(by.values()) or 1
+    print("Working directories found on this machine, largest first.\n"
+          "Paste the ones you care about into the \"labels\" block of sources.json:\n")
+    print("  \"labels\": {")
+    for path, wh in sorted(by.items(), key=lambda kv: -kv[1]):
+        if wh / tot < 0.005:
+            continue
+        print(f'    "{path}*":{" " * max(1, 56 - len(path))}"",'
+              f'   // {wh/1000:7.2f} kWh, {wh/tot*100:4.1f}%')
+    print("  }\n\nFill in each name. Patterns are globs; trailing * catches subdirectories.")
     raise SystemExit
 
 # ---- gather -------------------------------------------------------------------------------
