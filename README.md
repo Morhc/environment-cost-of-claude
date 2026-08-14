@@ -159,7 +159,9 @@ matter if you don't have it.
 ├── training_bounds.py           # derived training-energy bounds behind PROVENANCE §7
 ├── extract_cambium.py           # re-derives NREL Cambium long-run marginal rates
 ├── dashboard.py                 # local dashboard server (stdlib only)
-├── dashboard.html               # the three tabs
+├── dashboard.html               # the four tabs
+├── favicon.svg                  # tab icon; regenerate with make_favicon.py
+├── make_favicon.py              # generates favicon.svg and inlines it as a data URI
 ├── Dashboard.command            # double-click launcher (macOS)
 ├── sources.example.json         # copy to sources.json and list your machines
 ├── measure_usage.py             # your own Claude Code usage -> tokens, energy, CO2, water
