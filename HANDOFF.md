@@ -1,35 +1,35 @@
 # Handoff — state of the work as of August 14, 2026
 
-The 28-page report and 16-page brief were **retired on 14 August 2026**, once the dashboard
-replaced their hypothetical session with real measurement. Their sourcing lives on in
-`PROVENANCE.md`; the long-form claims audit, aggregate-consumption literature and section-by-
-section review of the academic record were dropped, and remain in git history at `3d7008a`.
+**The repo is a tool now, not a report.** `dashboard.py` measures your own Claude Code usage across
+every machine you work on and costs it in energy, CO₂ and water; `PROVENANCE.md` documents where
+every rate and factor comes from. The 28-page report and 16-page brief were retired on 14 August
+once the dashboard replaced their hypothetical session with real measurement. Their sourcing lives
+on in `PROVENANCE.md`; the claims audit, aggregate-consumption literature and section-by-section
+review of the academic record were dropped and remain in git history at `3d7008a`.
 
-Everything below is current;
-`CLAUDE.md` holds the working rules, this file holds the state and the open threads.
+Published at **github.com/Morhc/environment-cost-of-claude** (public, MIT + CC BY 4.0).
+`CLAUDE.md` holds the working rules; this file holds state and open threads.
 
 ## What exists
 
 | File | What it is |
 |:---|:---|
-| `PROVENANCE.md` | Where every number comes from, how far to trust it, what is unknown |
-| `dashboard.py` / `dashboard.html` | The local dashboard — four tabs, refresh button |
-| `data/sourced_data.json` | Every plotted value with its source, method, and credibility flag |
-| `make_figures.py` | The five sourced figures |
-| `extract_avert.py` / `extract_cambium.py` | Short-run and long-run marginal grid factors from EPA / NREL |
-| `training_bounds.py` | Derived training-energy bounds behind PROVENANCE §7 |
-| `measure_usage.py` | Measured token mix from local Claude Code transcripts (counters only) |
-| `CLAUDE.md` | Project conventions (strictness rule, honesty rule, source hierarchy, palette) |
+| `PROVENANCE.md` | Where every number comes from, how far to trust it, what is unknown. 9 sections. |
+| `dashboard.py` / `dashboard.html` | Local dashboard, four tabs, Refresh button. Stdlib only, loopback only, three routes. |
+| `measure_usage.py` | Transcripts → tokens → energy/CO₂/water. `--raw`, `--merge`, `--by`, `--plot`, `--list-projects`. |
+| `collect_usage.sh` | Local + SSH hosts, merged. |
+| `data/sourced_data.json` | Every value with source, method, credibility flag. Includes equivalences. |
+| `extract_avert.py` / `extract_cambium.py` | Short-run and long-run marginal grid factors from EPA / NREL. |
+| `training_bounds.py` | Derived training-energy bounds behind PROVENANCE §7. |
+| `make_figures.py` | The five sourced figures. |
+| `sources.json` | **Untracked.** Your machines and label globs. `sources.example.json` is the template. |
+| `data/usage_cache.json` | **Untracked.** Collected usage; holds every directory you have worked in. |
 
-## The central finding
+## Current measured totals (14 August 2026, both machines)
 
-**Anthropic has published no first-party environmental data of any kind** — no sustainability
-report, no Scope 1/2/3 inventory, no per-query energy/water/carbon figure, no PUE/WUE, no
-training-run disclosure for any Claude model. Verified directly (`anthropic.com/sustainability`
-404s; the Transparency Hub has no environmental content) and corroborated by SINK Project (31/100,
-42nd of 43 SaaS companies), Stanford FMTI, MIT Tech Review, and Heatmap. Every Claude-specific
-number in both documents is therefore third-party, and the credibility of each is assessed
-individually.
+892.5 kWh · 311 kg CO₂e (US average) · 2,965 L water of which 161 L on-site · 103 sessions ·
+54,700 messages · 60 days. Cluster holds ~62%. Band across the fifteen conventions: 245–1,732
+driving miles. **Any total is a snapshot that includes the work of producing it.**
 
 ## Key quantitative anchors
 
@@ -150,6 +150,22 @@ individually.
   ignores agentic side-contexts will understate by roughly that much. Also do not use file mtime
   for the history span — it moves when a session is resumed and gave 29 days against a true 47;
   read the in-file `timestamp` field instead.
+
+## Traps that cost time (all fixed, do not reintroduce)
+
+1. **Transcripts nest.** Subagent/workflow files live at `<project>/<session>/subagents/...` —
+   missing them undercounted by 22%.
+2. **Two path layouts.** `<project>/<session>.jsonl` and a flat `<session>.jsonl`; the flat one is
+   all of the cluster's scratch.
+3. **Project directory names are lossy.** `/`, `.` and `_` all map to `-`, so decoding them turns
+   `nucrate_viewer` into `nucrate/viewer`. Use the `cwd` field from the records.
+4. **cwd changes mid-session.** 14 of 37 home-directory sessions moved; attributing a whole session
+   to its first cwd made `/Users/<me>` look like a 103 kWh project. Tokens follow the cwd per message.
+5. **Never use file mtime for the history span.** It moves on resume; gave 29 days against a true 47.
+6. **Scope remote discovery to `$USER`.** A `/scratch/*` wildcard matched a colleague's readable
+   directory and added their usage to the total.
+7. **Do not serve the repo directory over HTTP.** `SimpleHTTPRequestHandler` + `chdir` published
+   `sources.json` and `usage_cache.json`. The dashboard whitelists three routes and checks `Host`.
 
 ## Open threads / what I'd do next
 - **No measured long-context energy curve exists for any Claude model** — the 200k–1M context window
