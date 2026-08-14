@@ -13,3 +13,7 @@ __pycache__/
 .DS_Store
 *.xlsx
 !data/avert_emission_rates_2023.xlsx
+
+# user-specific machine list, and the collected cache
+sources.json
+data/usage_cache.json

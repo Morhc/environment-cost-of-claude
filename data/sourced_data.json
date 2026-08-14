@@ -159,6 +159,42 @@
       "'End-use' location includes distribution losses, modestly high for a transmission-connected campus."
     ]
   },
+  "equivalences": {
+    "_note": "Factors for expressing energy/CO2/water in everyday units. Framing inspired by Arbor's carbon-equivalent calculator (arbor.eco/tool/carbon-equivalent-calculator), which publishes its categories but not most of its factors; the numbers below come from primary sources instead. Entries flagged derived combine a sourced rate with a stated assumption.",
+    "co2": {
+      "source": "EPA, Greenhouse Gas Equivalencies Calculator - Calculations and References",
+      "url": "https://www.epa.gov/energy/greenhouse-gases-equivalencies-calculator-calculations-and-references",
+      "miles_driven_per_kg": 2.545, "_miles_basis": "3.93e-4 t CO2e per mile, average gasoline passenger vehicle",
+      "gasoline_litres_per_kg": 0.4259, "_gasoline_basis": "8.887e-3 t CO2 per US gallon; 1 gal = 3.785 L",
+      "smartphone_charges_per_kg": 80.6, "_phone_basis": "1.24e-5 t CO2 per charge",
+      "tree_seedlings_10yr_per_kg": 0.01667, "_tree_basis": "0.060 t CO2 per urban tree seedling grown for 10 years",
+      "home_electricity_years_per_kg": 0.000208, "_home_basis": "4.798 t CO2 per US home per year"
+    },
+    "flight": {
+      "source": "UK DESNZ/DEFRA 2025 GHG conversion factors, long-haul economy",
+      "kgco2e_per_passenger_km": 0.11704,
+      "kgco2e_per_passenger_km_with_radiative_forcing": 0.15282,
+      "reference_route_km": 3974,
+      "_route_basis": "Los Angeles to New York one-way, the route Arbor uses for its long-haul category",
+      "derived": true
+    },
+    "water": {
+      "source": "EPA WaterSense (showerheads); US Energy Policy Act 1992 flush standard",
+      "url": "https://www.epa.gov/watersense/showerheads",
+      "litres_per_shower": 60.6,
+      "_shower_basis": "WaterSense showerhead 2.0 gpm x 8 minutes. The 8-minute duration is this project's assumption, not an EPA figure; EPA publishes the flow rate only.",
+      "litres_per_toilet_flush": 6.06, "_flush_basis": "1.6 US gal federal standard",
+      "litres_per_bottle": 0.5,
+      "derived": true
+    },
+    "energy": {
+      "source": "EIA average US household electricity ~10,800 kWh/yr; smartphone charge 0.019 kWh via Arbor; EV consumption assumed",
+      "household_days_per_kwh": 0.0338, "_household_basis": "29.6 kWh per US household per day",
+      "ev_km_per_kwh": 5.88, "_ev_basis": "0.17 kWh/km, assumed",
+      "smartphone_charges_per_kwh": 52.6,
+      "derived": true
+    }
+  },
   "aggregate": {
     "iea": {"source": "IEA Energy and AI (2025-04) + Key Questions update (2026)", "datacenters_twh_2024": 415, "datacenters_twh_2025": 485, "datacenters_twh_2030_proj": 945, "ai_specific_twh_2025": 155},
     "devries_gao_2025": {"ai_twh_2025_upper": 82, "source": "de Vries-Gao, Joule (2025-05)"},

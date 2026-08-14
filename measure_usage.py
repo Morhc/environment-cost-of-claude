@@ -87,11 +87,16 @@ def scan(roots, project_filter=None):
                 continue
             f = c = o = m = 0
             first = last = None
+            cwd = None
             for line in open(path, errors="replace"):
                 try:
                     d = json.loads(line)
                 except Exception:
                     continue
+                # The directory name encodes the working directory but is lossy: "/", "." and "_"
+                # all become "-", so it cannot be inverted. The records carry the real path.
+                if cwd is None and d.get("cwd"):
+                    cwd = d["cwd"]
                 if ts := d.get("timestamp"):
                     first = min(first or ts, ts)
                     last = max(last or ts, ts)
@@ -111,10 +116,11 @@ def scan(roots, project_filter=None):
             if not m:
                 continue
             s = agg.setdefault((root, project, session),
-                               dict(project=project, fresh=0, cached=0, out=0, msgs=0,
-                                    subagents=0, first=first, last=last))
+                               dict(project=project, root=root, cwd=cwd, fresh=0, cached=0,
+                                    out=0, msgs=0, subagents=0, first=first, last=last))
             s["fresh"] += f; s["cached"] += c; s["out"] += o; s["msgs"] += m
             s["subagents"] += len(parts) > 2
+            s["cwd"] = s.get("cwd") or cwd
             if first: s["first"] = min(s["first"] or first, first)
             if last: s["last"] = max(s["last"] or last, last)
     return list(agg.values()), hourly
@@ -168,9 +174,12 @@ stamps = [t for s in sessions for t in (s["first"], s["last"]) if t]
 
 if a.raw:
     import platform
+    host = platform.node()
+    for sd in sessions:
+        sd["source"] = host
     print(json.dumps({
-        "source": platform.node(), "roots": [os.path.expanduser(r) for r in
-                                             (a.root or ["~/.claude/projects"])],
+        "source": host, "roots": [os.path.expanduser(r) for r in
+                                  (a.root or ["~/.claude/projects"])],
         "sessions": len(sessions), "messages": tot("msgs"),
         "first": min(stamps) if stamps else None, "last": max(stamps) if stamps else None,
         "tokens": {"fresh": F, "cached": C, "output": O},

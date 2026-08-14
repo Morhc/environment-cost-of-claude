@@ -1,38 +1,58 @@
 # Environment Cost of Claude
 
-What can actually be quantified about the environmental footprint of using Anthropic's Claude
-models, from published sources — plus a tool that measures your own usage and costs it in CO₂ and
-water.
+A dashboard that measures **your own** Claude Code usage across every machine you work on and
+costs it in energy, CO₂ and water — plus the report that documents where every conversion factor
+comes from.
 
-## Measure your own usage first
+![dashboard](figures/fig_s2_usage_alltime.png)
 
-Claude Code writes a transcript for every session, and each assistant message carries the token
-counters the serving stack returned. That is real measurement, not an estimate. This repo turns it
-into energy, CO₂ and water:
+## Run the dashboard
 
 ```bash
-python3 measure_usage.py                    # this machine
-./collect_usage.sh trillium other-host      # every machine you use, merged
+make dashboard          # or: python3 dashboard.py, or double-click Dashboard.command
 ```
 
-**One machine is almost always an undercount.** There is no central ledger — transcripts live on
-whichever machine ran them, and for this author a laptop-only run missed 62% of the total, which was
-sitting on an HPC login node. `collect_usage.sh` pipes the same script over SSH to hosts you name
-(they need only `python3`), discovers transcript roots scoped to `$USER`, and merges the results.
-Only token counts come back; no message content is ever read, and nothing leaves your machines.
+It opens `http://localhost:8765` with three tabs and a **Refresh data** button that re-runs
+collection on demand:
 
-```bash
-python3 measure_usage.py --list-grids       # 15 accounting conventions, cheapest first
-python3 measure_usage.py --grid Cambium_PJM_West --days 30
-python3 measure_usage.py --by hour --tz America/Vancouver
-python3 measure_usage.py --plot usage.png --event 2026-07-24='Plan limit raised'
+| Tab | Shows |
+|:---|:---|
+| **Environmental cost** | Energy, CO₂ and water, switchable between real units and everyday equivalents (km driven, long-haul flights, tree-seedlings, showers, flushes). Any of 15 grid accounting conventions. |
+| **Sources** | How much came from each machine, with the transcript roots it read. |
+| **Projects** | Every project taking 5% or more of the total, and the directory it lives in. |
+
+Stdlib Python only — no install step, no dependencies, works anywhere `python3` runs.
+
+### Telling it where you work
+
+Claude Code keeps transcripts per machine with **no central ledger**, so one machine is usually a
+large undercount. Copy `sources.example.json` to `sources.json` and list the hosts you use:
+
+```json
+{ "remote": ["trillium", "some-other-box"] }
 ```
 
-Full options and caveats in [Costing your own usage](#costing-your-own-usage) below. The headline
-number depends enormously on which accounting convention you pick — across the fifteen the tool
-carries, the same electricity spans a factor of seven — which is the point of the report.
+Local is always included. Remote hosts are read over SSH — they need only `python3`, since the
+collector is piped to them over stdin. Transcript roots are auto-discovered and **scoped to
+`$USER`**, because a wildcard over `/scratch/*` matches other people's directories on a shared
+cluster. Only token counts come back. No message content is read, and nothing leaves your machines.
 
-## The documents
+Cloud sessions are never written to local disk and cannot be collected at all.
+
+## What is measured and what is not
+
+The **token counts are measured** — Claude Code records what the serving stack returned for every
+assistant message. Everything downstream is **derived**: energy comes from published per-token
+rates carrying 2–4× method uncertainty, and CO₂ depends on which grid accounting convention you
+pick, which alone spans a factor of about seven.
+
+The dashboard shows that spread rather than hiding it behind one number. Why those particular
+rates and factors, and how much to trust each, is what the report is for.
+
+## The report is the provenance
+
+
+Every number the dashboard prints traces back to a source documented here.
 
 - **`claude-environmental-impact-report.pdf`** (28 pp) — source-critical analysis of what can be
   quantified about Claude's environmental footprint from Anthropic's disclosures, the academic
@@ -58,6 +78,7 @@ with attribution. See `LICENSE`.
 make            # both PDFs
 make report     # main report only
 make brief      # companion brief only
+make dashboard  # local dashboard on http://localhost:8765
 make figures    # regenerate all PNGs from sourced_data.json
 make clean      # remove generated PDFs (figures are kept)
 ```
@@ -104,6 +125,10 @@ matter if you don't have it.
 ├── extract_avert.py             # re-derives AVERT marginal rates from the EPA workbook
 ├── training_bounds.py           # derived training-energy bounds behind Appendix C
 ├── extract_cambium.py           # re-derives NREL Cambium long-run marginal rates
+├── dashboard.py                 # local dashboard server (stdlib only)
+├── dashboard.html               # the three tabs
+├── Dashboard.command            # double-click launcher (macOS)
+├── sources.example.json         # copy to sources.json and list your machines
 ├── measure_usage.py             # your own Claude Code usage -> tokens, energy, CO2, water
 ├── collect_usage.sh             # merges usage across machines (local + ssh hosts)
 ├── figures/*.png                # generated (fig_s2_usage_alltime.png needs the author's
@@ -125,8 +150,7 @@ It prints every permutation plus carbon and water at four grid intensities. If y
 central case, update the numbers in `researcher_brief.md` Sections 0, 3, and 4 (they are written
 inline, not templated) and re-run `make brief`.
 
-## Costing your own usage
-<a id="costing-your-own-usage"></a>
+## Command line, without the dashboard
 
 `measure_usage.py` reads the token counters Claude Code writes to `~/.claude/projects/*/*.jsonl`
 and carries them through to CO2 and water. It opens only the usage counters, never message

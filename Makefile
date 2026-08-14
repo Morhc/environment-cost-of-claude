@@ -10,7 +10,7 @@ BRIEF_FIG = figures/fig_s1_session.png
 # Claude Code transcripts via `measure_usage.py --plot`, which no other reader can reproduce.
 # It is committed as a static asset.
 
-.PHONY: all report brief figures scenario clean
+.PHONY: all report brief figures scenario dashboard clean
 
 all: report brief
 
@@ -29,6 +29,10 @@ $(MAIN_FIGS): make_figures.py data/sourced_data.json
 
 $(BRIEF_FIG): make_scenario_figure.py data/sourced_data.json
 	python3 make_scenario_figure.py
+
+# Local dashboard: your own usage, three tabs, refresh button
+dashboard:
+	python3 dashboard.py
 
 # Print every scenario permutation (energy, carbon at 4 grids, water)
 scenario:
