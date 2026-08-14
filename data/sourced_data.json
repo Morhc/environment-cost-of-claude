@@ -178,6 +178,17 @@
       "_route_basis": "Los Angeles to New York one-way, the route Arbor uses for its long-haul category",
       "derived": true
     },
+    "flight_route": {
+      "source": "ICAO Carbon Emissions Calculator (ICEC), queried for YYJ-YYZ",
+      "url": "https://icec.icao.int/calculator",
+      "methodology_url": "https://icec.icao.int/Documents/Methodology%20ICAO%20Carbon%20Emissions%20Calculator_v13_Final.pdf",
+      "label": "YYJ→YYZ",
+      "route": "Victoria (YYJ) to Toronto (YYZ)",
+      "kgco2_per_passenger_one_way": 249,
+      "_basis": "ICEC result retrieved 2026-08-14. ICEC attributes fuel burn to passengers only (belly freight excluded), applies route load factors and a cabin-class seat factor, then converts fuel to CO2 at 3.16 kg CO2 per kg fuel. Its methodology states the output is 'the amount of CO2 (in kg) footprint attributed to each passenger travelling between those two airports' -- per passenger, one way, not the whole aircraft.",
+      "_caveat": "CO2 only. ICEC excludes non-CO2 radiative forcing, so this is smaller than a DEFRA-with-RF factor for the same journey; it is the conservative choice, consistent with the long-haul entry above.",
+      "derived": false
+    },
     "water": {
       "source": "EPA WaterSense (showerheads); US Energy Policy Act 1992 flush standard",
       "url": "https://www.epa.gov/watersense/showerheads",

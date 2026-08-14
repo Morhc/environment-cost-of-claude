@@ -186,6 +186,7 @@ numbers come from primary sources instead.
 | Tree seedlings, 10 years | 0.060 t CO₂ each | EPA |
 | Home electricity, one year | 4.798 t CO₂ | EPA |
 | Long-haul flight | 0.11704 kg CO₂e / passenger-km | UK DESNZ/DEFRA 2025, economy |
+| Flight, YYJ→YYZ | 249 kg CO₂ / passenger, one way | ICAO Carbon Emissions Calculator |
 | Shower | 60.6 L | **derived**: EPA WaterSense 2.0 gpm × 8 min |
 | Toilet flush | 6.06 L | US Energy Policy Act 1992 standard |
 | Household-day of electricity | 29.6 kWh | EIA |
@@ -195,6 +196,15 @@ Two entries are flagged because they are not wholly sourced. EPA publishes the s
 rate*, not a duration — the 8-minute shower is this project's assumption. The EV figure is a
 plausible round number, not a citation. DEFRA's long-haul factor rises to 0.15282 kg CO₂e/passenger-km
 if radiative forcing is included; the dashboard uses the lower, more conservative value.
+
+The two flight equivalents answer different questions and are not interchangeable. The long-haul
+figure is a *rate* per passenger-km applied to a reference distance, so it rescales to any route.
+The YYJ→YYZ figure is a *route query*: ICAO's calculator returns the CO₂ attributed to one
+passenger flying that specific city pair, having already applied that route's load factors, its
+actual aircraft mix and a cabin-class seat factor. It is the more accurate number for that journey
+and meaningless for any other. Both exclude non-CO₂ radiative forcing, which roughly doubles
+aviation's warming contribution on some accountings — so both understate the comparison, and in the
+same direction.
 
 ## 7. Training
 
