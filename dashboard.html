@@ -554,19 +554,18 @@ $('#mode').onchange = () => { tiles(); chart(); };
 load('/api/data');
 
 // --- Tell the server we are here ---------------------------------------------------------
-// Launched from the macOS app, the server exits once no tab is watching, so closing the tab
-// leaves nothing running. The heartbeat is what it watches for.
+// Launched from the macOS app, the server exits once no tab holds this connection open, so
+// closing the tab leaves nothing running. Opening it is the entire contract: there is nothing
+// to send, and no unload handler to miss.
 //
-// 20 s, not because the server needs it that often, but because background tabs get their
-// timers throttled to about once a minute; the server's timeout is set well above that so
-// leaving this tab in the background does not read as "closed".
-setInterval(() => fetch('/api/ping').catch(() => {}), 20000);
-fetch('/api/ping').catch(() => {});
-
-// pagehide, not beforeunload: beforeunload is unreliable on mobile and increasingly ignored,
-// and pagehide is the one the bfcache path actually fires. sendBeacon because a normal fetch
-// is cancelled when the page goes away.
-addEventListener('pagehide', () => navigator.sendBeacon('/api/bye'));
+// This replaced a heartbeat plus a sendBeacon on pagehide. Both are best-effort -- the beacon
+// is not guaranteed to be delivered, and a missed one left the server running until a timeout
+// long enough to survive background-tab throttling, which looks exactly like a broken feature.
+// A closed socket needs no cooperation from the page.
+//
+// EventSource reconnects on its own if the connection drops, and the server allows a grace
+// period longer than that reconnect, so a reload does not take the server down.
+new EventSource('/api/live');
 </script>
 </body>
 </html>

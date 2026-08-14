@@ -22,6 +22,8 @@ import http.server
 import json
 import os
 import fnmatch
+import select
+import socket
 import socketserver
 import subprocess
 import sys
@@ -37,19 +39,26 @@ CACHE = "data/usage_cache.json"
 CONFIG = "sources.json"
 
 # --- Auto-quit, for the double-clickable app --------------------------------------------------
-# The page sends a heartbeat while it is open and a beacon when it goes away, and this server
-# exits once nobody is watching. Two numbers matter and neither is arbitrary:
+# The page holds one open connection (/api/live) for as long as it is on screen, and this server
+# exits once no connection remains. The tab does not have to report anything: closing it tears the
+# socket down, and an open socket is self-evident in a way a message is not.
 #
-# IDLE is 150 s because browsers throttle timers in background tabs to roughly one per minute.
-# A 30 s timeout would look correct in testing and then kill the server whenever you switched
-# to another tab for a while, which is the opposite of what a background app should do.
+# The first version did ask the tab to report -- a heartbeat while open, a sendBeacon on pagehide.
+# Both are best-effort. sendBeacon is not guaranteed to be delivered, and timers in background tabs
+# are throttled to about one per minute, which forces the idle timeout up to a couple of minutes.
+# When the beacon went missing the server sat there for the whole timeout, which reads as broken.
 #
-# BYE_GRACE exists because `pagehide` fires on reload and on ordinary navigation too, not only on
-# close. Waiting a few seconds and cancelling the shutdown if a heartbeat arrives means a reload
-# doesn't take the server down under you.
+# GRACE covers reload and ordinary navigation, where the connection drops and comes back. It has to
+# clear the client's reconnect delay, which the stream sets to 1 s (`retry:`), so 5 leaves room for
+# a slow reload without making a real close feel sluggish.
+#
+# NEVER_CONNECTED is the separate case where no browser ever arrived -- no default browser, or the
+# page failed to load. Nothing will ever close a connection that was never opened, so that needs
+# its own timeout or the app would linger invisibly forever.
 AUTOQUIT = os.environ.get("DASHBOARD_AUTOQUIT") == "1"
-IDLE, BYE_GRACE = 150.0, 6.0
-WATCH = {"seen": time.time(), "bye": 0.0}
+GRACE, NEVER_CONNECTED = 5.0, 90.0
+LIVE = {"n": 0, "empty_since": None, "ever": False}
+LIVE_LOCK = threading.Lock()
 REFRESH_LOCK = threading.Lock()
 
 
@@ -247,8 +256,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     is no reason for those to be reachable over HTTP at all, so this whitelists instead.
     """
 
-    ALLOWED = {"/", "/index.html", "/api/data", "/api/refresh", "/api/config",
-               "/api/ping", "/api/bye"}
+    ALLOWED = {"/", "/index.html", "/api/data", "/api/refresh", "/api/config", "/api/live"}
 
     def log_message(self, *args):
         pass
@@ -278,15 +286,40 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def do_POST(self):
-        """Only /api/bye, because navigator.sendBeacon can only POST."""
-        try:                                   # drain the beacon body so the socket stays sane
-            n = int(self.headers.get("Content-Length") or 0)
-            if 0 < n < 65536:
-                self.rfile.read(n)
-        except (ValueError, OSError):
+    def _stream(self):
+        """Hold an event-stream open for as long as the tab is. Presence is the whole payload.
+
+        Closure is detected by watching the socket for readability rather than by writing to it:
+        the first write to a closed peer usually succeeds into the send buffer and only the second
+        one raises, so a write-based check would not notice until the next keepalive. select() sees
+        the peer's FIN as a readable socket with nothing on it, which is immediate."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        with LIVE_LOCK:
+            LIVE["n"] += 1
+            LIVE["ever"] = True
+            LIVE["empty_since"] = None
+        try:
+            self.wfile.write(b"retry: 1000\n\ndata: open\n\n")
+            self.wfile.flush()
+            last = time.time()
+            while True:
+                r, _, _ = select.select([self.connection], [], [], 1.0)
+                if r and not self.connection.recv(1, socket.MSG_PEEK):
+                    break                                    # peer closed: the tab is gone
+                if time.time() - last > 20:
+                    self.wfile.write(b": keepalive\n\n")      # also catches a peer that vanished
+                    self.wfile.flush()                       # without sending a FIN
+                    last = time.time()
+        except (OSError, ValueError):
             pass
-        return self.do_GET()
+        finally:
+            with LIVE_LOCK:
+                LIVE["n"] = max(0, LIVE["n"] - 1)
+                if LIVE["n"] == 0:
+                    LIVE["empty_since"] = time.time()
 
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
@@ -296,13 +329,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path not in self.ALLOWED:
             self.send_error(404, "not found")
             return
-        if path == "/api/ping":
-            WATCH["seen"] = time.time()
-            WATCH["bye"] = 0.0        # a heartbeat cancels a pending shutdown, e.g. after a reload
-            return self._send({"autoquit": AUTOQUIT})
-        if path == "/api/bye":
-            WATCH["bye"] = time.time()
-            return self._send({"ok": True})
+        if path == "/api/live":
+            return self._stream()
         if path in ("/", "/index.html"):
             return self._send_html()
         if path == "/api/data":
@@ -327,15 +355,19 @@ class Server(socketserver.ThreadingTCPServer):
     daemon_threads = True
 
 
-def watchdog(httpd):
+def watchdog(httpd, started):
     """Exit once no tab is watching. Runs only under DASHBOARD_AUTOQUIT=1."""
     while True:
-        time.sleep(1.0)
-        now, bye = time.time(), WATCH["bye"]
-        if bye and now - bye > BYE_GRACE:
+        time.sleep(0.5)
+        now = time.time()
+        with LIVE_LOCK:
+            n, empty_since, ever = LIVE["n"], LIVE["empty_since"], LIVE["ever"]
+        if n > 0:
+            continue
+        if ever and empty_since and now - empty_since > GRACE:
             why = "browser tab closed"
-        elif now - WATCH["seen"] > IDLE:
-            why = f"no browser heartbeat for {IDLE:.0f}s"
+        elif not ever and now - started > NEVER_CONNECTED:
+            why = f"no browser connected within {NEVER_CONNECTED:.0f}s"
         else:
             continue
         print(f"  quitting: {why}")
@@ -364,7 +396,7 @@ if __name__ == "__main__":
         print("  quits when you close the tab" if AUTOQUIT else "  Ctrl-C to stop")
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
         if AUTOQUIT:
-            threading.Thread(target=watchdog, args=(httpd,), daemon=True).start()
+            threading.Thread(target=watchdog, args=(httpd, time.time()), daemon=True).start()
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
