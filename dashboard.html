@@ -7,7 +7,7 @@
 <!-- Favicon is inline rather than a file: the server whitelists its routes, so a
      /favicon.ico request would 404, and a data URI needs no request at all.
      Source kept as favicon.svg for editing; regenerate with make_favicon.py. -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%227%22%20fill%3D%22%232a78d6%22%2F%3E%3Cpath%20d%3D%22M6.5%2025%20C13%2024.5%2016%2020%2020%2013.5%20C21.8%2010.6%2023.2%209.2%2025%208.2%22%20fill%3D%22none%22%20stroke%3D%22%23fcfcfb%22%20stroke-width%3D%224.2%22%20stroke-linecap%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2225%22%20cy%3D%228.2%22%20r%3D%224%22%20fill%3D%22%23eb6834%22%20stroke%3D%22%232a78d6%22%20stroke-width%3D%221.1%22%2F%3E%3C%2Fsvg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%227%22%20fill%3D%22%231baf7a%22%2F%3E%3Cpath%20d%3D%22M25.5%206.5%20C25.5%2017%2017%2025.5%206.5%2025.5%20C6.5%2015%2015%206.5%2025.5%206.5%20Z%22%20fill%3D%22%23fcfcfb%22%2F%3E%3C%2Fsvg%3E">
 <style>
   :root{
     --surface:#fcfcfb; --raised:#f6f5f1; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
@@ -552,6 +552,21 @@ $('#refresh').onclick = () => load('/api/refresh');
 $('#grid').onchange = render;
 $('#mode').onchange = () => { tiles(); chart(); };
 load('/api/data');
+
+// --- Tell the server we are here ---------------------------------------------------------
+// Launched from the macOS app, the server exits once no tab is watching, so closing the tab
+// leaves nothing running. The heartbeat is what it watches for.
+//
+// 20 s, not because the server needs it that often, but because background tabs get their
+// timers throttled to about once a minute; the server's timeout is set well above that so
+// leaving this tab in the background does not read as "closed".
+setInterval(() => fetch('/api/ping').catch(() => {}), 20000);
+fetch('/api/ping').catch(() => {});
+
+// pagehide, not beforeunload: beforeunload is unreliable on mobile and increasingly ignored,
+// and pagehide is the one the bfcache path actually fires. sendBeacon because a normal fetch
+// is cancelled when the page goes away.
+addEventListener('pagehide', () => navigator.sendBeacon('/api/bye'));
 </script>
 </body>
 </html>

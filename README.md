@@ -9,8 +9,19 @@ comes from.
 ## Run the dashboard
 
 ```bash
-make dashboard          # or: python3 dashboard.py, or double-click Dashboard.command
+make dashboard          # or: python3 dashboard.py
 ```
+
+On macOS you can build a double-clickable app instead:
+
+```bash
+make app                # builds "Environment Cost of Claude.app" on your Desktop
+```
+
+Double-click it and the dashboard opens in your browser; **close the tab and the server quits by
+itself**, so nothing is left running. It has no Dock icon — the browser tab is the whole interface.
+The bundle stores the absolute path of this checkout, so rerun `make app` if you move the repo.
+Output goes to `~/Library/Logs/environment-cost-of-claude.log`.
 
 It opens `http://localhost:8765` with three tabs and a **Refresh data** button that re-runs
 collection on demand:
@@ -22,7 +33,9 @@ collection on demand:
 | **Projects** | Every project taking 5% or more of the total, and the directory it lives in. |
 | **Habits** | When you work by day and hour, total tokens processed, session lengths, and how often context compaction fires and at what size. |
 
-Stdlib Python only — no install step, no dependencies, works anywhere `python3` runs.
+The dashboard is stdlib Python only — no install step, no dependencies, works anywhere `python3`
+runs. (`make app` and `make figures` are the exceptions: they need the numpy/Pillow and matplotlib
+listed under [Dependencies](#dependencies).)
 
 ### Telling it where you work
 
@@ -115,6 +128,8 @@ with attribution. See `LICENSE`.
 
 ```bash
 make dashboard    # local dashboard on http://localhost:8765
+make app          # macOS double-click app on your Desktop (quits when you close the tab)
+make icon         # regenerate favicon.svg and re-inline it into dashboard.html
 make figures      # regenerate the sourced figures from data/sourced_data.json
 make provenance   # build PROVENANCE.md as a PDF (needs pandoc + xelatex)
 ```
@@ -123,9 +138,11 @@ Scripts use paths relative to the project root — **run everything from here**,
 
 ## Dependencies
 
-**Python** (3.9+): `matplotlib` for the figures. `extract_avert.py` additionally needs `openpyxl`,
-but only if you want to re-derive the EPA AVERT marginal-emissions rates — the extracted values are
-already in `data/sourced_data.json`, so nothing in `make` depends on it.
+**Python** (3.9+): the dashboard needs nothing beyond the standard library. `matplotlib` for the
+figures. `make app` needs `numpy` and `Pillow`, which come with matplotlib, plus `qlmanage` and
+`iconutil` from macOS itself. `extract_avert.py` additionally needs `openpyxl`, but only if you
+want to re-derive the EPA AVERT marginal-emissions rates — the extracted values are already in
+`data/sourced_data.json`, so nothing in `make` depends on it.
 
 ```bash
 pip install matplotlib
@@ -162,7 +179,8 @@ matter if you don't have it.
 ├── dashboard.html               # the four tabs
 ├── favicon.svg                  # tab icon; regenerate with make_favicon.py
 ├── make_favicon.py              # generates favicon.svg and inlines it as a data URI
-├── Dashboard.command            # double-click launcher (macOS)
+├── make_app.py                  # builds the macOS .app (icon + auto-quit launcher)
+├── Dashboard.command            # double-click launcher, but leaves a Terminal window behind
 ├── sources.example.json         # copy to sources.json and list your machines
 ├── measure_usage.py             # your own Claude Code usage -> tokens, energy, CO2, water
 ├── collect_usage.sh             # merges usage across machines (local + ssh hosts)

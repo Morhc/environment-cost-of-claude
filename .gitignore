@@ -17,3 +17,6 @@ __pycache__/
 # user-specific machine list, and the collected cache
 sources.json
 data/usage_cache.json
+
+# built app bundles: they embed an absolute path, so they are built rather than committed
+*.app/

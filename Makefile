@@ -8,13 +8,22 @@ MAIN_FIGS = figures/fig1_claude_energy_vs_tokens.png \
 # figures/fig_s2_usage_alltime.png is NOT a make target: it is built from your own Claude Code
 # transcripts via `measure_usage.py --plot`, which no other reader can reproduce.
 
-.PHONY: all dashboard figures provenance clean
+.PHONY: all dashboard app icon figures provenance clean
 
 all: figures
 
 # Local dashboard: your own usage, four tabs, refresh button
 dashboard:
 	python3 dashboard.py
+
+# macOS: a double-clickable app on the Desktop. Sets DASHBOARD_AUTOQUIT=1, so the server exits
+# once no browser tab is watching it. Embeds this checkout's path -- rerun after moving the repo.
+app:
+	python3 make_app.py
+
+# Regenerate the tab icon and re-inline it into dashboard.html as a data URI
+icon:
+	python3 make_favicon.py
 
 figures: $(MAIN_FIGS)
 

@@ -2,7 +2,11 @@
 
     python3 dashboard.py            # serves http://localhost:8765 and opens a browser
     make dashboard                  # same
-    ./Dashboard.command             # double-click on macOS
+    make app                        # build a double-clickable macOS app (see make_app.py)
+    ./Dashboard.command             # double-click, but leaves a Terminal window behind
+
+With DASHBOARD_AUTOQUIT=1 (which the macOS app sets) the server shuts itself down once no browser
+tab is watching it, so double-clicking the app and closing the tab leaves nothing running.
 
 Stdlib only. Reads token counters from Claude Code transcripts (never message content), costs
 them with the published rates in data/sourced_data.json, and serves three views: the totals, the
@@ -31,6 +35,22 @@ os.chdir(ROOT)
 PORT = int(os.environ.get("DASHBOARD_PORT", "8765"))
 CACHE = "data/usage_cache.json"
 CONFIG = "sources.json"
+
+# --- Auto-quit, for the double-clickable app --------------------------------------------------
+# The page sends a heartbeat while it is open and a beacon when it goes away, and this server
+# exits once nobody is watching. Two numbers matter and neither is arbitrary:
+#
+# IDLE is 150 s because browsers throttle timers in background tabs to roughly one per minute.
+# A 30 s timeout would look correct in testing and then kill the server whenever you switched
+# to another tab for a while, which is the opposite of what a background app should do.
+#
+# BYE_GRACE exists because `pagehide` fires on reload and on ordinary navigation too, not only on
+# close. Waiting a few seconds and cancelling the shutdown if a heartbeat arrives means a reload
+# doesn't take the server down under you.
+AUTOQUIT = os.environ.get("DASHBOARD_AUTOQUIT") == "1"
+IDLE, BYE_GRACE = 150.0, 6.0
+WATCH = {"seen": time.time(), "bye": 0.0}
+REFRESH_LOCK = threading.Lock()
 
 
 def load_config():
@@ -207,12 +227,15 @@ def build(raws, errors, labels=None):
 
 
 def refresh():
-    cfg = load_config()
-    raws, errors = collect()
-    data = build(raws, errors, cfg.get("labels"))
-    os.makedirs("data", exist_ok=True)
-    json.dump(data, open(CACHE, "w"), indent=1)
-    return data
+    # Serialised: the server is threaded so heartbeats keep arriving during a long SSH collection,
+    # which also means two Refresh clicks could otherwise write the cache file at once.
+    with REFRESH_LOCK:
+        cfg = load_config()
+        raws, errors = collect()
+        data = build(raws, errors, cfg.get("labels"))
+        os.makedirs("data", exist_ok=True)
+        json.dump(data, open(CACHE, "w"), indent=1)
+        return data
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -224,7 +247,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
     is no reason for those to be reachable over HTTP at all, so this whitelists instead.
     """
 
-    ALLOWED = {"/", "/index.html", "/api/data", "/api/refresh", "/api/config"}
+    ALLOWED = {"/", "/index.html", "/api/data", "/api/refresh", "/api/config",
+               "/api/ping", "/api/bye"}
 
     def log_message(self, *args):
         pass
@@ -254,6 +278,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def do_POST(self):
+        """Only /api/bye, because navigator.sendBeacon can only POST."""
+        try:                                   # drain the beacon body so the socket stays sane
+            n = int(self.headers.get("Content-Length") or 0)
+            if 0 < n < 65536:
+                self.rfile.read(n)
+        except (ValueError, OSError):
+            pass
+        return self.do_GET()
+
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
         if not self._local_only():
@@ -262,6 +296,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path not in self.ALLOWED:
             self.send_error(404, "not found")
             return
+        if path == "/api/ping":
+            WATCH["seen"] = time.time()
+            WATCH["bye"] = 0.0        # a heartbeat cancels a pending shutdown, e.g. after a reload
+            return self._send({"autoquit": AUTOQUIT})
+        if path == "/api/bye":
+            WATCH["bye"] = time.time()
+            return self._send({"ok": True})
         if path in ("/", "/index.html"):
             return self._send_html()
         if path == "/api/data":
@@ -278,18 +319,52 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send({"labels": load_config().get("labels", {})})
 
 
+class Server(socketserver.ThreadingTCPServer):
+    """Threaded so that a refresh -- which can take minutes when it collects over SSH -- does not
+    block the heartbeat. On the single-threaded server the watchdog below would see a stale
+    heartbeat during a long refresh and shut down mid-collection."""
+    allow_reuse_address = True
+    daemon_threads = True
+
+
+def watchdog(httpd):
+    """Exit once no tab is watching. Runs only under DASHBOARD_AUTOQUIT=1."""
+    while True:
+        time.sleep(1.0)
+        now, bye = time.time(), WATCH["bye"]
+        if bye and now - bye > BYE_GRACE:
+            why = "browser tab closed"
+        elif now - WATCH["seen"] > IDLE:
+            why = f"no browser heartbeat for {IDLE:.0f}s"
+        else:
+            continue
+        print(f"  quitting: {why}")
+        threading.Thread(target=httpd.shutdown, daemon=True).start()
+        return
+
+
 if __name__ == "__main__":
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("127.0.0.1", PORT), Handler) as httpd:
-        url = f"http://localhost:{PORT}"
+    url = f"http://localhost:{PORT}"
+    try:
+        httpd = Server(("127.0.0.1", PORT), Handler)
+    except OSError:
+        # Already running -- most likely the app was double-clicked twice. Surfacing the open
+        # dashboard is what was wanted either way; starting a second copy is not.
+        print(f"already serving on {url} — opening it")
+        webbrowser.open(url)
+        raise SystemExit(0)
+
+    with httpd:
         cfg = load_config().get("remote", [])
         print(f"Environment Cost of Claude — dashboard on {url}")
         print(f"  sources: local" + (f" + {', '.join(map(str, cfg))}" if cfg else
                                      "  (add remote hosts in sources.json)"))
         if not os.path.exists(CACHE):
             print("  no cached data yet — press Refresh in the browser, or wait for first load")
-        print("  Ctrl-C to stop")
+        print("  quits when you close the tab" if AUTOQUIT else "  Ctrl-C to stop")
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+        if AUTOQUIT:
+            threading.Thread(target=watchdog, args=(httpd,), daemon=True).start()
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
