@@ -194,17 +194,19 @@ numbers come from primary sources instead.
 
 Two entries are flagged because they are not wholly sourced. EPA publishes the showerhead *flow
 rate*, not a duration — the 8-minute shower is this project's assumption. The EV figure is a
-plausible round number, not a citation. DEFRA's long-haul factor rises to 0.15282 kg CO₂e/passenger-km
-if radiative forcing is included; the dashboard uses the lower, more conservative value.
+plausible round number, not a citation.
 
-The two flight equivalents answer different questions and are not interchangeable. The long-haul
-figure is a *rate* per passenger-km applied to a reference distance, so it rescales to any route.
-The YYJ→YYZ figure is a *route query*: ICAO's calculator returns the CO₂ attributed to one
-passenger flying that specific city pair, having already applied that route's load factors, its
-actual aircraft mix and a cabin-class seat factor. It is the more accurate number for that journey
-and meaningless for any other. Both exclude non-CO₂ radiative forcing, which roughly doubles
-aviation's warming contribution on some accountings — so both understate the comparison, and in the
-same direction.
+For flights the dashboard shows the **route query**, not the rate. ICAO's calculator returns the
+CO₂ attributed to one passenger flying that specific city pair, having already applied that route's
+load factors, its actual aircraft mix and a cabin-class seat factor, so it is more accurate for that
+journey than a generic per-passenger-km rate applied to a distance — and meaningless for any other
+route. The DEFRA rate stays in the table because it is the factor to use for a different route:
+change the city pair and that is what rescales, while the ICAO number must be re-queried.
+
+Both figures are CO₂ only. Neither includes aviation's non-CO₂ radiative forcing, which on some
+accountings roughly doubles the warming contribution of a flight — DEFRA's own long-haul factor
+rises from 0.11704 to 0.15282 kg CO₂e/passenger-km when it is included. The flight comparison is
+therefore understated, and the error has a known direction: real flights are worse than shown.
 
 ## 7. Training
 

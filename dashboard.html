@@ -449,12 +449,10 @@ function tiles() {
     ['Energy', fmt(kwh * eq.energy.household_days_per_kwh, 1) + ' household-days',
       `or ${fmt(kwh * eq.energy.ev_km_per_kwh, 0)} km in an electric car`],
     ['CO₂', fmt(co2 * eq.co2.miles_driven_per_kg * 1.609, 0) + ' km driven',
-      `or ${fmt(co2 / (eq.flight.kgco2e_per_passenger_km * eq.flight.reference_route_km), 2)} ` +
-      `long-haul flights` +
       // Guarded: a usage cache written before this factor existed has no flight_route, and an
       // undefined divisor would put "NaN flights" on screen rather than simply omitting it.
-      (eq.flight_route ? ` · ${fmt(co2 / eq.flight_route.kgco2_per_passenger_one_way, 2)} ` +
-                         `${eq.flight_route.label} flights` : '')],
+      eq.flight_route ? `or ${fmt(co2 / eq.flight_route.kgco2_per_passenger_one_way, 2)} ` +
+                        `${eq.flight_route.label} flights, one way` : ''],
     ['Water', fmt(wTot / eq.water.litres_per_shower, 0) + ' showers',
       `${fmt(wOn / eq.water.litres_per_shower, 1)} from on-site cooling, the rest at the power ` +
       `plants · ${fmt(wTot / eq.water.litres_per_toilet_flush, 0)} toilet flushes`],
