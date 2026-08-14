@@ -62,7 +62,8 @@
               border-left:1px solid var(--grid)}
   .seg button:first-child{border-left:none}
   .seg button[aria-pressed="true"]{background:var(--blue);color:#fff;font-weight:600}
-  #chart text{fill:var(--muted);font-size:11px}
+  #chart text{fill:var(--muted);font-size:13px}
+  #chart .cap{font-size:15px;font-weight:600}
   #chart .axis{stroke:var(--grid);stroke-width:1}
   #chart .cur{stroke:var(--blue);fill:none;stroke-width:2;stroke-linejoin:round}
   #chart .cum{stroke:var(--orange);fill:none;stroke-width:2;stroke-linejoin:round}
@@ -119,8 +120,8 @@
       <span class="spacer"></span>
       <span class="legend" style="margin:0" id="chartlegend"></span>
     </div>
-    <svg id="chart" viewBox="0 0 900 430" preserveAspectRatio="none"
-         style="width:100%;height:430px"></svg>
+    <svg id="chart" viewBox="0 0 900 560"
+         style="width:100%;height:auto;display:block"></svg>
     <div class="sub" id="chartfoot" style="margin-top:2px"></div>
 
     <div class="note" id="costnote"></div>
@@ -167,6 +168,16 @@ let D = null;
 const fmt = (n, d = 0) => n.toLocaleString(undefined, {minimumFractionDigits: d,
                                                       maximumFractionDigits: d});
 const pct = x => (x * 100).toFixed(1) + '%';
+// Token counts span six orders of magnitude across these views, so scale each to its own
+// nearest unit rather than forcing everything into millions.
+const tok = n => {
+  const a = Math.abs(n);
+  if (a >= 1e12) return fmt(n / 1e12, 2) + ' trillion';
+  if (a >= 1e9)  return fmt(n / 1e9, a >= 1e10 ? 1 : 2) + ' billion';
+  if (a >= 1e6)  return fmt(n / 1e6, a >= 1e7 ? 0 : 1) + ' million';
+  if (a >= 1e3)  return fmt(n / 1e3, 0) + 'k';
+  return fmt(n);
+};
 
 // ---- tabs -------------------------------------------------------------------------------
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
@@ -240,7 +251,7 @@ function chart() {
     conv = D.water.total_l_per_kwh / (equiv ? eq.water.litres_per_shower : 1);
     unit = equiv ? 'showers' : 'L';
   }
-  const W = 900, H = 430, L = 70, R = 74, T = 40, B = 30;
+  const W = 900, H = 560, L = 84, R = 90, T = 58, B = 46;
   const day = S.map(d => d.kwh * conv), cum = S.map(d => d.cum * conv);
   const maxD = Math.max(...day, 1e-9) * 2, maxC = Math.max(...cum, 1e-9);
   const x = i => L + i * (W - L - R) / Math.max(S.length - 1, 1);
@@ -270,15 +281,16 @@ function chart() {
   const ticks = [0, 0.25, 0.5, 0.75, 1].map(f =>
     `<line class="axis" x1="${L}" y1="${yD(maxD * f).toFixed(1)}" x2="${W - R}"
            y2="${yD(maxD * f).toFixed(1)}" opacity=".55"/>` +
-    `<text x="${L - 9}" y="${(yD(maxD * f) + 4).toFixed(1)}" text-anchor="end">${fm(maxD * f)}</text>` +
-    `<text x="${W - R + 9}" y="${(yC(maxC * f) + 4).toFixed(1)}">${fm(maxC * f)}</text>`).join('');
-  const every = Math.ceil(S.length / 8);
+    `<text x="${L - 10}" y="${(yD(maxD * f) + 5).toFixed(1)}" text-anchor="end">${fm(maxD * f)}</text>` +
+    `<text x="${W - R + 10}" y="${(yC(maxC * f) + 5).toFixed(1)}">${fm(maxC * f)}</text>`).join('');
+  const every = Math.ceil(S.length / 9);
   const xlab = S.map((d, i) => i % every ? '' :
-    `<text x="${x(i).toFixed(1)}" y="${H - 9}" text-anchor="middle">${d.date.slice(5)}</text>`).join('');
+    `<text x="${x(i).toFixed(1)}" y="${H - 14}" text-anchor="middle">${d.date.slice(5)}</text>`).join('');
   svg.innerHTML = `
-    <text x="${L - 9}" y="20" text-anchor="end" style="font-weight:600;fill:var(--blue)">per day</text>
-    <text x="${W - R + 9}" y="20" style="font-weight:600;fill:var(--orange)">cumulative</text>
-    <text x="${L}" y="20" style="fill:var(--ink2)">${unit}</text>
+    <text class="cap" x="${L - 10}" y="26" text-anchor="end" fill="var(--blue)">per day</text>
+    <text class="cap" x="${W - R + 10}" y="26" fill="var(--orange)">cumulative</text>
+    <text x="${L - 10}" y="46" text-anchor="end">${unit}</text>
+    <text x="${W - R + 10}" y="46">${unit}</text>
     ${ticks}${xlab}
     <path class="area" d="${band}"/>
     ${METRIC === 'water' ? wsplit : ''}
@@ -344,16 +356,16 @@ function habits() {
   const auto = C.filter(c => c.trigger === 'auto').length;
 
   $('#htiles').innerHTML = [
-    ['Tokens processed', fmt(allTok / 1e6, 0) + ' M',
-      `${fmt(T.fresh / 1e6, 1)} M fresh · ${fmt(T.cached / 1e6, 0)} M cached · ` +
-      `${fmt(T.out / 1e6, 1)} M written`],
+    ['Tokens processed', tok(allTok),
+      `${tok(T.fresh)} fresh · ${tok(T.cached)} cached · ${tok(T.out)} written`],
     ['Busiest day', peakDay, `${pct(dow[DOW.indexOf(peakDay)] / tot)} of all energy · ` +
       `weekends are ${pct(weekend)}`],
     ['Peak hour', `${String(peakHour).padStart(2, '0')}:00`,
       `local time · ${pct(hod.slice(9, 18).reduce((a, b) => a + b, 0) / tot)} of work falls ` +
       `in 09:00–18:00`],
     ['Sessions', fmt(S.length), `median ${med.toFixed(1)} h wall-clock · ` +
-      `${fmt(D.totals.messages / Math.max(S.length, 1), 0)} assistant messages each`],
+      `${fmt(D.totals.messages / Math.max(S.length, 1), 0)} assistant messages each · ` +
+      `${tok(allTok / Math.max(S.length, 1))} tokens each`],
   ].map(([l, v, sub]) => `<div class="tile"><div class="lab">${l}</div><div class="val">${v}</div>
        <div class="sub2">${sub}</div></div>`).join('');
 
@@ -376,8 +388,9 @@ function habits() {
       <div class="tile"><div class="lab">Compactions</div><div class="val">${C.length}</div>
         <div class="sub2">${auto} automatic · ${C.length - auto} manual</div></div>
       <div class="tile"><div class="lab">Typical trigger point</div>
-        <div class="val">${fmt(meanPre / 1000, 0)}k</div>
-        <div class="sub2">tokens of context when compaction fires</div></div>
+        <div class="val">${tok(meanPre)}</div>
+        <div class="sub2">tokens of context when compaction fires ·
+          largest ${tok(Math.max(...pre))}</div></div>
       <div class="tile"><div class="lab">Context reclaimed</div>
         <div class="val">${pct(1 - (C.reduce((a, c) => a + (c.post || 0), 0) /
                                     Math.max(C.reduce((a, c) => a + (c.pre || 0), 0), 1)))}</div>
@@ -389,7 +402,7 @@ function habits() {
      cluster in another zone still lands on your wall clock. Energy is used as the activity
      measure rather than message count because it weights long-context turns properly — an hour
      spent re-reading a large conversation costs far more than an hour of short exchanges.
-     ${C.length ? `Compaction fires at around ${fmt(meanPre / 1000, 0)}k tokens on average, which
+     ${C.length ? `Compaction fires at around ${tok(meanPre)} tokens on average, which
      is where a conversation stops growing and starts being rewritten.` : ''}`;
 }
 
