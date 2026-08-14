@@ -15,7 +15,9 @@ Published at **github.com/Morhc/environment-cost-of-claude** (public, MIT + CC B
 | File | What it is |
 |:---|:---|
 | `PROVENANCE.md` | Where every number comes from, how far to trust it, what is unknown. 9 sections. |
-| `dashboard.py` / `dashboard.html` | Local dashboard, four tabs, Refresh button. Stdlib only, loopback only, three routes. |
+| `dashboard.py` / `dashboard.html` | Local dashboard, four tabs, Refresh button. Stdlib only, loopback only, whitelisted routes. Threaded, so a slow SSH refresh cannot starve anything else. |
+| `make_app.py` | Builds the macOS double-click app: icon, and a launcher that sets `DASHBOARD_AUTOQUIT=1`. Embeds this checkout's absolute path, so the bundle is built, never committed. |
+| `make_favicon.py` | The leaf mark. `svg()` is the single source for both the tab favicon and the app icon. |
 | `measure_usage.py` | Transcripts → tokens → energy/CO₂/water. `--raw`, `--merge`, `--by`, `--plot`, `--list-projects`. |
 | `collect_usage.sh` | Local + SSH hosts, merged. |
 | `data/sourced_data.json` | Every value with source, method, credibility flag. Includes equivalences. |
@@ -165,7 +167,19 @@ driving miles. **Any total is a snapshot that includes the work of producing it.
 6. **Scope remote discovery to `$USER`.** A `/scratch/*` wildcard matched a colleague's readable
    directory and added their usage to the total.
 7. **Do not serve the repo directory over HTTP.** `SimpleHTTPRequestHandler` + `chdir` published
-   `sources.json` and `usage_cache.json`. The dashboard whitelists three routes and checks `Host`.
+   `sources.json` and `usage_cache.json`. The dashboard whitelists its routes and checks `Host`.
+8. **Do not detect a closed tab by asking the tab.** The first version of the app's auto-quit used a
+   heartbeat plus `sendBeacon` on `pagehide`. `sendBeacon` is best-effort by specification, and
+   background tabs get their timers throttled to roughly one a minute, which forces the fallback
+   timeout up to minutes — so a missed beacon looks exactly like a broken feature. The tab now holds
+   an event-stream connection open and the server watches the socket. Detect closure with `select()`
+   on the peer, not by writing: the first write to a closed peer succeeds into the send buffer and
+   only the second raises, so a write-based check lags by a whole keepalive interval.
+9. **`qlmanage` flattens SVGs onto opaque white.** It is the only SVG rasteriser macOS ships, so the
+   app icon is rendered twice — over white and over black — and the discarded alpha solved back out.
+   Downscale icons with `BOX`, not `LANCZOS`, whose ringing leaves a halo at 16 px.
+10. **Never name a shell loop variable `path` in zsh.** It is tied to `$PATH`; a `read sha path` in
+    the privacy audit wiped the shell's PATH and every later command in that script failed.
 
 ## Open threads / what I'd do next
 - **No measured long-context energy curve exists for any Claude model** — the 200k–1M context window
@@ -180,7 +194,16 @@ driving miles. **Any total is a snapshot that includes the work of producing it.
 ## Rebuilding
 
 See `README.md`. Short version: `make` — needs pandoc, xelatex + lmodern, and matplotlib.
-The repo is now under git (initialised locally, August 11, 2026; no remote configured).
+`make app` additionally needs numpy/Pillow and macOS's own `qlmanage` and `iconutil`.
+
+The repo is under git (initialised locally, August 11, 2026) and published at
+`github.com/Morhc/environment-cost-of-claude`, **public**. Two files must never be committed:
+`sources.json` (machine names, and label globs that can name colleagues' paths) and
+`data/usage_cache.json` (every working directory you have ever used). Both are gitignored, and a
+full-history audit on August 14 confirmed neither has ever been committed, that no username,
+hostname or absolute path appears in any blob on any branch, and that the retired report PDFs still
+reachable in history contain none either. Re-run that audit before adding anything generated from
+transcripts — deleted files survive in git history, so genericising the working tree is not enough.
 PDFs are gitignored as build products — run `make` to regenerate them.
 
 On macOS the documents' DejaVu fonts are not present by default and xelatex fails with a fontspec

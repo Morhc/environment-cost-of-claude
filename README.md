@@ -113,7 +113,8 @@ rates and factors, and how much to trust each, is what the report is for.
 
 Every rate, grid factor and equivalence the dashboard applies is documented in
 **[`PROVENANCE.md`](PROVENANCE.md)**: where it came from, how far to trust it, and what is still
-unknown. `make provenance` builds it as a PDF if you want one for citation.
+unknown. `make provenance` builds it as a PDF if you want one for citation — the PDF is a build
+artifact and is deliberately not committed, so it can't go stale against the numbers.
 
 The short version is that Anthropic has published no first-party environmental data of any kind, so
 every rate here is somebody else's estimate. That is why the dashboard shows bands rather than

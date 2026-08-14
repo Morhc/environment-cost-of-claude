@@ -80,6 +80,17 @@ Prose over bullets in `PROVENANCE.md`. Tables for anything comparative. Every nu
 running text traceable to `data/sourced_data.json` or an inline citation. Avoid the word
 "comprehensive" about our own work — the whole point is that comprehensiveness is impossible here.
 
+## Privacy (the repo is public)
+
+`sources.json` and `data/usage_cache.json` are gitignored and must stay that way: the first names
+machines and can carry label globs matching colleagues' paths, the second records every working
+directory the user has ever been in. No tracked file may contain a real username, hostname or
+absolute path — use `$USER`, `/scratch/$USER`, `<you>` in examples.
+
+Deleted files survive in git history, so scan history and not just the working tree before
+publishing anything derived from transcripts. Grep is not sufficient on its own: check figures and
+any PDFs too, since neither is searchable as text.
+
 ## Gotchas that cost time
 
 - Pandoc caption-ID syntax (`{#tbl:foo}`) renders **literally** in PDF output with this template.
@@ -89,3 +100,14 @@ running text traceable to `data/sourced_data.json` or an inline citation. Avoid 
 - Matplotlib must use the `Agg` backend (already set in both scripts).
 - Figure cross-references in the text are manual. If you add or reorder a figure, grep for
   "Figure N" and fix by hand.
+- The app's auto-quit must not be reimplemented on `sendBeacon`/`pagehide` or a polling heartbeat.
+  Both are best-effort, and background tabs are timer-throttled, so the fallback timeout has to be
+  minutes — a missed beacon then looks identical to a broken feature. Liveness is a held-open
+  connection the server watches; presence is the whole signal.
+- `qlmanage` is the only SVG rasteriser macOS ships and it flattens onto opaque white. `make_app.py`
+  renders over white and over black and solves for the discarded alpha. Icons downscale with `BOX`;
+  `LANCZOS` rings and halos at 16 px.
+- Icons are judged at 16 px, not in the preview. Designs that read at 48 px and dissolve at 16 have
+  been rejected twice now — render a contact sheet at true size on both light and dark and look.
+- In zsh, never name a loop variable `path` — it is tied to `$PATH` and assigning it breaks every
+  subsequent command in the script.

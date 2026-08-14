@@ -1,8 +1,10 @@
-# The two report PDFs ARE committed: they are the deliverable, and rebuilding them needs
-# pandoc + xelatex + DejaVu fonts. Ignore any other stray PDFs.
+# PDFs are build artifacts here, not deliverables. PROVENANCE.md is the tracked source and GitHub
+# renders it directly; `make provenance` builds the PDF locally if you want one to cite. Committing
+# it would put a stale snapshot next to a dashboard that changes every time you press Refresh,
+# which is the failure this repo was rebuilt to avoid.
+# (An earlier version kept exceptions for two committed report PDFs. Both were retired at 49489b7
+# when PROVENANCE.md replaced them, and the exceptions outlived the files.)
 *.pdf
-!claude-environmental-impact-report.pdf
-!opus-researcher-footprint-brief.pdf
 
 # Python
 __pycache__/
