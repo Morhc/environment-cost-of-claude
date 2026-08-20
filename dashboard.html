@@ -79,7 +79,14 @@
   [hidden]{display:none !important}
   .scroll{overflow-x:auto}
   tr[data-tip]{cursor:default}
+  /* The BACKGROUND is translucent, not the element: `opacity` is already how this box is shown
+     and hidden, so dimming it would fade the text too and undo itself on every hover. The blur
+     keeps the numbers legible where the box sits over the chart's own lines. The plain
+     background declaration first is the fallback for anything without color-mix. */
   #tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--surface);
+       background:color-mix(in srgb, var(--ink) 82%, transparent);
+       -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+       white-space:pre-line;font-variant-numeric:tabular-nums;line-height:1.45;
        padding:6px 9px;border-radius:6px;font-size:12px;opacity:0;transition:opacity .1s;
        z-index:9;max-width:320px}
 </style>
@@ -223,7 +230,9 @@ function dailySeries() {
     const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' +
                 String(d.getDate()).padStart(2, '0');
     const r = D.rates_wh_per_token;
-    by[key] = (by[key] || 0) + (v[0] * r.fresh + v[1] * r.cached + v[2] * r.out) / 1000;
+    const b = by[key] || (by[key] = {kwh: 0, tok: 0});
+    b.kwh += (v[0] * r.fresh + v[1] * r.cached + v[2] * r.out) / 1000;
+    b.tok += v[0] + v[1] + v[2];
   }
   const keys = Object.keys(by).sort();
   if (!keys.length) return [];
@@ -232,7 +241,7 @@ function dailySeries() {
   while (cur <= end) {                                  // keep empty days: the gaps are signal
     const key = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0') + '-' +
                 String(cur.getDate()).padStart(2, '0');
-    out.push({date: key, kwh: by[key] || 0});
+    out.push({date: key, kwh: (by[key] || {}).kwh || 0, tok: (by[key] || {}).tok || 0});
     cur.setDate(cur.getDate() + 1);
   }
   let acc = 0;
@@ -331,14 +340,13 @@ function chart() {
     hov.innerHTML = `<line class="mark" x1="${x(i)}" y1="${T}" x2="${x(i)}" y2="${H - B}"/>` +
       `<circle cx="${x(i)}" cy="${yD(day[i])}" r="4" fill="var(--blue)"/>` +
       `<circle cx="${x(i)}" cy="${yC(cum[i])}" r="4" fill="var(--orange)"/>`;
-    tip.textContent = `${S[i].date} — ${fm(day[i])} ${unit} that day ` +
-                      `(${fm(day[i] / 2)}\u2013${fm(day[i] * 2)}) · total ${fm(cum[i])} ` +
-                      `(${fm(cum[i] / 2)}\u2013${fm(cum[i] * 2)})`;
-    tip.style.opacity = 1;
-    tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 10) + 'px';
-    tip.style.top = (e.clientY + 18) + 'px';
+    hit.dataset.tip =
+      `${S[i].date}\n` +
+      `per day  ${fm(day[i])} ${unit}  (${fm(day[i] / 2)}\u2013${fm(day[i] * 2)})\n` +
+      `total  ${fm(cum[i])} ${unit}  (${fm(cum[i] / 2)}\u2013${fm(cum[i] * 2)})\n` +
+      (S[i].tok ? `${tok(S[i].tok)} tokens measured` : 'no activity');
   };
-  hit.onmouseleave = () => { hov.innerHTML = ''; tip.style.opacity = 0; };
+  hit.onmouseleave = () => { hov.innerHTML = ''; delete hit.dataset.tip; tip.style.opacity = 0; };
   $('#chartlegend').innerHTML =
     `<span><span class="sw" style="background:var(--blue)"></span>per day</span>
      <span><span class="sw" style="background:var(--orange)"></span>cumulative</span>` +
